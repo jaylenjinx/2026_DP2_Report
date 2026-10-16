@@ -1,0 +1,394 @@
+%=======================================================================
+%  41277 Control Design -- Spring 2026
+%  Demonstration Practical 2: State-Feedback Control
+%  LaTeX version of the official Word answer template.
+%
+%  Compile with tectonic (see .vscode/settings.json) or pdflatex (twice).
+%  If the ebgaramond package is unavailable, comment out the
+%  \usepackage[lining]{ebgaramond} line below -- everything else still works.
+%=======================================================================
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[lining]{ebgaramond}          % Garamond, to match the Word template
+\usepackage[margin=2.2cm,top=3.2cm,headheight=42pt]{geometry}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{mathtools}
+\usepackage{empheq}
+\usepackage{graphicx}
+\usepackage{float}          % provides the [H] "exactly here" placement
+\usepackage{subcaption}     % side-by-side plots and zooms
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{fancyhdr}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{listings}       % MATLAB snippets
+\usepackage[colorlinks=true,linkcolor=black,urlcolor=blue!60!black,
+            citecolor=black]{hyperref}
+
+%----------------------------- house style -----------------------------
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+\allowdisplaybreaks
+\raggedbottom
+
+\newcommand{\dd}[1]{\dot{#1}}
+\newcommand{\ddd}[1]{\ddot{#1}}
+\newcommand{\todo}[1]{\textcolor{red}{\textbf{[TODO:} #1\textbf{]}}}
+
+\lstset{language=Matlab,basicstyle=\ttfamily\small,frame=single,
+        keywordstyle=\color{blue!70!black},commentstyle=\color{green!45!black},
+        stringstyle=\color{purple!70!black},breaklines=true,columns=fullflexible}
+
+% Section headings styled like the "Q1:", "Q2.1)" labels of the template
+\usepackage{titlesec}
+\titleformat{\section}{\large\bfseries}{}{0pt}{}
+\titleformat{\subsection}{\normalsize\bfseries}{}{0pt}{}
+\titlespacing*{\section}{0pt}{14pt}{4pt}
+\titlespacing*{\subsection}{0pt}{10pt}{2pt}
+
+% ---- figure that degrades to a placeholder box if the file is missing ----
+%  \optfig{path}{width fraction}{caption}{label}
+\newcommand{\optfig}[4]{%
+  \begin{figure}[H]\centering
+  \IfFileExists{#1}{\includegraphics[width=#2\linewidth]{#1}}%
+    {\fbox{\parbox[c][3.2cm][c]{0.9\linewidth}{\centering
+      \textit{[ Insert \texttt{\detokenize{#1}} here ]}}}}%
+  \caption{#3}\label{#4}\end{figure}}
+
+%------------------------------- header --------------------------------
+\fancypagestyle{uts}{%
+  \fancyhf{}
+  \fancyhead[L]{\includegraphics[height=22pt]{assets/logos/uts_logo.png}\quad
+                \textbf{Demonstration Practical 2}}
+  \fancyhead[R]{\footnotesize\begin{tabular}{@{}r@{}}
+                41277 Control Design\\ Spring 2026\\
+                Coordinator: A/Prof Ricardo P. Aguilera
+                \end{tabular}}
+  \renewcommand{\headrulewidth}{0.4pt}
+  \fancyfoot[C]{\thepage}
+}
+\pagestyle{uts}
+
+%=======================================================================
+\begin{document}
+
+%=========================== COVER PAGE ================================
+\thispagestyle{empty}
+
+\includegraphics[height=30pt]{assets/logos/uts_logo.png}\hfill
+{\large\bfseries Faculty of Engineering and IT}
+
+\vspace{10pt}
+
+\fbox{%
+\begin{minipage}{\dimexpr\textwidth-2\fboxsep-2\fboxrule\relax}
+\vspace{4pt}
+\centering{\Large\bfseries Assignment Cover Sheet}\par
+\vspace{8pt}
+\raggedright
+\textbf{Subject:} 41277 Control Design\par
+\vspace{4pt}
+\textbf{Assignment Number:} Demonstration Practical 2
+\hfill \textbf{Date Submitted:} \todo{dd/mm/2026}\par
+\vspace{4pt}
+\textbf{Assignment Title:} State-Feedback Control\par
+\vspace{4pt}
+\textbf{Student Name(s) and Number(s)}\hfill\textbf{Tutorial Group:} 02\par
+\vspace{4pt}
+
+\begin{tabular}{@{}p{3.2cm}p{7cm}@{}}
+Jaylen Avtarovski  & 24767939 \\[6pt]
+Rhyse Williams & 24817532 \\[6pt]
+Elina Kim & 24949885 \\[6pt]
+\end{tabular}
+
+\vspace{10pt}
+\textbf{Declaration of Originality:}\par
+\vspace{2pt}
+{\small The work contained in this assignment, other than that specifically
+attributed to another source, is that of the author(s). It is recognised
+that, should this declaration be found to be false, disciplinary action
+could be taken and the assignments of all students involved will be given
+zero marks. In the statement below, I have indicated the extent to which I
+have collaborated with other students, whom I have named.\par
+\vspace{4pt}
+Acknowledge use of any copied or reworked materials (eg.\ text, equations,
+images, music, video) from generative artificial intelligence tools (GenAI)
+(such as ChatGPT, DALL-E) by declaring its use (you'll also need to follow
+the advice from your subject coordinator about whether you can use GenAI
+tools in assessments for that subject). Find out more about how to reference
+GenAI and ChatGPT in assessments.}\par
+
+\vspace{6pt}
+\textbf{GenAI Declaration:}\par
+\vspace{2pt}
+\todo{Declare any GenAI use for this report.}\par
+
+\vspace{12pt}
+\textbf{Signature} \,\,\,\,\,\,\,\,\, J.A. \,\,\,\,\,\,\,\,\,|\,\,\,\,\,\,\,\,\, E.K. \,\,\,\,\,\,\,\,\,|\,\,\,\,\,\,\,\,\, R.W. \hfill \textbf{Date} \todo{date}\par
+
+\vspace{10pt}
+\textbf{Statement of Collaboration:}\par
+\vspace{2pt}
+\todo{Describe how the team collaborated on Q1--Q3.}
+\vspace{6pt}
+\end{minipage}}
+
+\vfill
+
+%========================= CONTRIBUTION TABLE ==========================
+\newpage
+
+\begin{center}
+\textbf{Demonstration Practice 2}\par
+\vspace{4pt}
+\begin{tabular}{|l|l|c|}
+\hline
+\textbf{Student Number} & \textbf{Student Name} &
+  \textbf{\begin{tabular}{@{}c@{}}Overall Contribution Weighting\\ From 0 to 100\%\end{tabular}}\\
+\hline
+24767939 & Jaylen Avtarovski & 100\% \\ \hline
+24817532 & Rhyse Williams    & 100\% \\ \hline
+24949885 & Elina Kim         & 100\% \\ \hline
+\end{tabular}
+\end{center}
+
+\vspace{6pt}
+{\small Each member's individual mark is the group mark scaled by their
+contribution level. If not indicated, all students get the same mark.}
+
+\vspace{10pt}
+
+\begin{center}\large\bfseries Answers to the Assignment Questions:\end{center}
+
+% Marking checklist (applies to every question):
+%  - comments using engineering concepts for every question (-2 per question)
+%  - show all steps / MATLAB functions used for numerical results
+%  - every figure numbered, captioned, referenced AND commented in the text (-2)
+%  - axis labels with units, e.g. Time [s], \theta(t) [rad] (-2)
+%  - several variables in one plot: different colours + legend (-2)
+%  - zoomed plots for transients / steady-state error where relevant
+%  - plots from MATLAB plot() (white background), no Simulink scope screenshots
+%  - only your own figures (none from lecture notes/slides)
+
+%=======================================================================
+\section*{Q1: State-Space Model \hfill (40 marks)}
+%=======================================================================
+
+%-----------------------------------------------------------------------
+\subsection*{Q1.1) System Modelling}
+%-----------------------------------------------------------------------
+% Derive from first principles (Newton / Kirchhoff / Lagrange).
+% State n, m, p; give Ac, Bc, Cc, Dc. If nonlinear, Jacobian-linearise
+% about a chosen equilibrium point (Remark 1).
+
+Based on~\cite{aguilera2026}, the QUBE-Servo 2 is modelled as
+\begin{subequations}\label{eq:ct_ss}
+\begin{align}
+  \dot{x}(t) &= A_c\,x(t) + B_c\,u(t),\\
+  y(t)       &= C_c\,x(t) + D_c\,u(t),
+\end{align}
+\end{subequations}
+with $n = \todo{n}$ states, $m = \todo{m}$ inputs and $p = \todo{p}$ outputs.
+
+\todo{Derivation of the motor/load dynamics and the state vector $x(t)$.}
+
+%-----------------------------------------------------------------------
+\subsection*{Q1.2) System Parameters}
+%-----------------------------------------------------------------------
+% Use the datasheet values; if any are missing, identify them in MATLAB
+% from experimental input-output data.
+
+The physical parameters of the QUBE-Servo 2 are given in
+Table~\ref{tab:params}, taken from the manufacturer's user
+manual~\cite{qube_manual}.
+
+\begin{table}[H]\centering
+\caption{QUBE-Servo 2 system parameters~\cite{qube_manual}.}
+\label{tab:params}
+\begin{tabular}{llr}
+\toprule
+\textbf{Symbol} & \textbf{Description} & \textbf{Value}\\
+\midrule
+\multicolumn{3}{l}{\textit{DC motor}}\\
+$R_m$ & Terminal resistance            & $8.4~\Omega$\\
+$k_t$ & Torque constant                & $0.042~\mathrm{N\,m/A}$\\
+$k_m$ & Motor back-emf constant        & $0.042~\mathrm{V/(rad/s)}$\\
+$J_m$ & Rotor inertia                  & $4.0\times10^{-6}~\mathrm{kg\,m^2}$\\
+$L_m$ & Rotor inductance               & $1.16~\mathrm{mH}$\\
+$m_h$ & Module attachment hub mass     & $0.0106~\mathrm{kg}$\\
+$r_h$ & Module attachment hub radius   & $0.0111~\mathrm{m}$\\
+$J_h$ & Module attachment hub inertia  & $0.6\times10^{-6}~\mathrm{kg\,m^2}$\\
+\multicolumn{3}{l}{\textit{Inertia disc module}}\\
+$m_d$ & Disc mass                      & $0.053~\mathrm{kg}$\\
+$r_d$ & Disc radius                    & $0.0248~\mathrm{m}$\\
+\multicolumn{3}{l}{\textit{Rotary pendulum module}}\\
+$m_r$ & Rotary arm mass                & $0.095~\mathrm{kg}$\\
+$L_r$ & Rotary arm length              & $0.085~\mathrm{m}$\\
+$m_p$ & Pendulum link mass             & $0.024~\mathrm{kg}$\\
+$L_p$ & Pendulum link length           & $0.129~\mathrm{m}$\\
+\multicolumn{3}{l}{\textit{Encoders and amplifier}}\\
+      & Encoder resolution (quadrature) & $0.00307~\mathrm{rad/count}$\\
+      & Recommended output voltage      & $\pm10~\mathrm{V}$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\todo{Keep only the rows for the module used; add any identified parameters
+(e.g.\ viscous friction) and the identification method.}
+
+%-----------------------------------------------------------------------
+\subsection*{Q1.3) System Model Discretisation}
+%-----------------------------------------------------------------------
+% Justify the sampling time, then c2d (ZOH).
+
+A sampling time of $T_s = \todo{T_s}$ is selected because
+\todo{justification, e.g.\ relative to the closed-loop bandwidth}. Using a
+zero-order hold (\texttt{c2d}), the discrete-time model is
+\begin{subequations}\label{eq:dt_ss}
+\begin{align}
+  x(k+1) &= A\,x(k) + B\,u(k),\\
+  y(k)   &= C\,x(k) + D\,u(k).
+\end{align}
+\end{subequations}
+
+\todo{Numerical $A$, $B$, $C$, $D$.}
+
+%=======================================================================
+\section*{Q2: State-Feedback Control (SFC) \hfill (40 marks)}
+%=======================================================================
+
+%-----------------------------------------------------------------------
+\subsection*{Q2.1) Controllability}
+%-----------------------------------------------------------------------
+For this question, the controllability matrix of the continuous-time model
+is
+\begin{equation}
+  \mathcal{C} = \begin{bmatrix} B_c & A_cB_c & \cdots & A_c^{n-1}B_c\end{bmatrix}.
+\end{equation}
+\todo{Numerical $\mathcal{C}$ (\texttt{ctrb}), its rank and justification.}
+
+%-----------------------------------------------------------------------
+\subsection*{Q2.2) State and Input References (Equilibrium Point)}
+%-----------------------------------------------------------------------
+Given the desired output reference $y^\star$, the steady-state references
+$x^\star$ and $u^\star$ satisfy
+\begin{equation}
+  \begin{bmatrix} A - I & B\\ C & D\end{bmatrix}
+  \begin{bmatrix} x^\star\\ u^\star\end{bmatrix}
+  = \begin{bmatrix} 0\\ y^\star\end{bmatrix}.
+\end{equation}
+\todo{Solve for $x^\star$, $u^\star$ for your setup.}
+
+%-----------------------------------------------------------------------
+\subsection*{Q2.3) Closed-Loop Eigenvalues}
+%-----------------------------------------------------------------------
+% Project requirements: overshoot < 15 %, settling time < 5 s,
+% steady-state accuracy < 50 (check units on Canvas).
+
+The control requirements are an overshoot below $15\,\%$ and a settling time
+below $5~\mathrm{s}$. The damping ratio and natural frequency follow from
+\begin{equation}
+  \zeta = \frac{-\ln(OS/100)}{\sqrt{\pi^2+\ln^2(OS/100)}},\qquad
+  \omega_n = \frac{4}{\zeta\,t_s},
+\end{equation}
+and the discrete-time eigenvalues from $z_i = e^{s_i T_s}$.
+
+\todo{Chosen $s_i$ and $z_i$ for all $n$ eigenvalues, with margin.}
+
+%-----------------------------------------------------------------------
+\subsection*{Q2.4) State-Feedback Gain}
+%-----------------------------------------------------------------------
+For the control law
+\begin{equation}\label{eq:sfc}
+  u(k) = -F\bigl(x(k) - x^\star\bigr) + u^\star,
+\end{equation}
+\todo{$F$ from \texttt{place(A,B,pz)} and verification of
+$\operatorname{eig}(A-BF)$.}
+
+%-----------------------------------------------------------------------
+\subsection*{Q2.5) Closed-Loop Implementation}
+%-----------------------------------------------------------------------
+% run_observer = 0. Full-state feedback in a MATLAB Function block.
+% Nonlinear systems: linear AND nonlinear model. Plot with
+% plots_Linear_case.m / plots_Nonlinear_case.m, no scope screenshots.
+
+\optfig{assets/images/fig_q25_linear.png}{0.95}{Closed-loop response of the
+linear model under state feedback.}{fig:q25_linear}
+
+\todo{Comment on Figure~\ref{fig:q25_linear}: overshoot, settling time,
+steady-state error and control effort versus requirements. Add zooms.}
+
+%=======================================================================
+\section*{Q3: Luenberger Observer Design \hfill (20 marks)}
+%=======================================================================
+
+%-----------------------------------------------------------------------
+\subsection*{Q3.1) Observability}
+%-----------------------------------------------------------------------
+The observability matrix of the continuous-time model is
+\begin{equation}
+  \mathcal{O} = \begin{bmatrix} C_c\\ C_cA_c\\ \vdots\\ C_cA_c^{n-1}\end{bmatrix}.
+\end{equation}
+\todo{Numerical $\mathcal{O}$ (\texttt{obsv}), its rank and justification.}
+
+%-----------------------------------------------------------------------
+\subsection*{Q3.2) Observer Eigenvalues}
+%-----------------------------------------------------------------------
+\todo{Observer eigenvalues (typically several times faster than the SFC
+eigenvalues) in continuous and discrete time.}
+
+%-----------------------------------------------------------------------
+\subsection*{Q3.3) Observer Gain}
+%-----------------------------------------------------------------------
+For the estimator
+\begin{equation}\label{eq:observer}
+  \hat{x}(k+1) = A\hat{x}(k) + Bu(k) + L\bigl(y(k)-\hat{y}(k)\bigr),
+\end{equation}
+\todo{$L$ from \texttt{place(A',C',po\_z)'} and verification of
+$\operatorname{eig}(A-LC)$.}
+
+%-----------------------------------------------------------------------
+\subsection*{Q3.4) Closed-Loop Implementation}
+%-----------------------------------------------------------------------
+% run_observer = 1; u(k) = -F(x_hat(k) - x*) + u*.
+% Initialise x_hat(0) != x(0) to show convergence (Remark 5).
+
+The controller now uses the estimated state:
+\begin{equation}\label{eq:sfc_obs}
+  u(k) = -F\bigl(\hat{x}(k) - x^\star\bigr) + u^\star.
+\end{equation}
+
+\optfig{assets/images/fig_q34_estimation.png}{0.95}{True and estimated states
+with $\hat{x}(0)\neq x(0)$.}{fig:q34_estimation}
+
+\optfig{assets/images/fig_q34_closed_loop.png}{0.95}{Closed-loop response with
+observer-based state feedback.}{fig:q34_closed_loop}
+
+\todo{Comment on Figures~\ref{fig:q34_estimation}
+and~\ref{fig:q34_closed_loop}: observer convergence and closed-loop
+performance against requirements.}
+
+\clearpage
+
+%=======================================================================
+\begin{thebibliography}{9}
+
+\bibitem{aguilera2026}
+R. P. Aguilera, \emph{Lecture Notes on State-Feedback Control}, University of
+Technology Sydney, Australia, 2026.
+
+\bibitem{ctms}
+B. Messner and D. Tilbury, \emph{Control Tutorials for MATLAB and Simulink},
+University of Michigan, USA. [Online]. Available:
+\url{http://ctms.engin.umich.edu/CTMS}
+
+\bibitem{qube_manual}
+Quanser Inc., \emph{QUBE-Servo 2 User Manual}, v1.0, Markham, ON, Canada.
+
+\end{thebibliography}
+
+\end{document}

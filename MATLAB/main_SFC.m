@@ -1,53 +1,58 @@
 %% DP2: State Feedback Control
-% 
+%
 % 41277 Control Design
 % University of Technology Sydney, Australia
 % Spring 2026
 %
 % A/Prof Ricardo P. Aguilera
 %
-% Enjoy it!!!
+% QUBE-Servo 2 rotary inverted pendulum, x = [theta alpha theta_dot alpha_dot]'
+% (alpha = 0 upright). Run setup_simulink_models.m once before this file.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 clc
-clear;
+clearvars -except batch_case;   % batch_case = [linear_model run_observer], see run_all_cases.m
+
+%% Continuous- and discrete-time model (Q1)
+evalc('dp2_q1');    % Ac, Bc, Cc, Dc, A, B, C, D, ts = 1 ms and parameters
+format short g
 
 %% Simulation Settings
-ts = 1/100;         % select a proper sampling time for your setup
-Tsim = 10;          % Simulation duration
+Tsim = 10;          % Simulation duration [s]
+theta_ref = deg2rad(30);    % rotary arm step reference at t = 1 s [rad]
 
 % only run your linear model if you do not have a nonlinear one.
 linear_model = 1;   % 1: control the linear model
                     % 0: control the nonlinear model
 
-run_observer = 0;   % 0: run only SFC
+run_observer = 1;   % 0: run only SFC
                     % 1: run SFC + observer
-                    
+if exist('batch_case', 'var')
+    linear_model = batch_case(1);
+    run_observer = batch_case(2);
+end
 
-% Observer initialization. 
-% Change this vector size according to the number of states in your setup
-x_hat_o = [0.1 -0.1]';
+% Plant starts at rest upright; the observer starts with a deliberate error
+% (Remark 5) so its convergence is visible.
+x0_NL   = [0 0 0 0]';
+x_hat_o = [deg2rad(10) deg2rad(-5) 0 0]';
+
+save_figures = true;   % export PNGs to ../Report/assets/images
 
 %% Continuous-time state space model
 disp('*************************')
 disp('Continuous-Time Matrices:')
 disp('x_dot(t)=Ac*x(t)+Bc*u(t)')
 disp('    y(t)=Cc*x(t)+Dc*u(t)')
-n = 2; %number of states
-
-Ac=[ 0    -1;
-    1   -1]
-
-Bc=[1 0
-    0 1]'
-
-Cc=[1 0
-    0 1];
-
-Dc=0
+n = size(Ac,1)      % number of states
+m = size(Bc,2)      % number of inputs
+p = size(Cc,1)      % number of outputs
+Ac, Bc, Cc, Dc
 
 %Continuous-time model in a compact form
-sys_ct=ss(Ac,Bc,Cc,Dc); 
+sys_ct=ss(Ac,Bc,Cc,Dc);
+disp('Open-loop eigenvalues:')
+eig(Ac)
 
 disp('*************************')
 disp('Controllability Matrix')
@@ -59,25 +64,21 @@ end
 
 %% Discrete-Time Model
 %    x(k+1) = Ax(k)+Bu(k)
-%      y(k) = Cx(k)+Du(k)                 
-                    
-sys_dt = c2d(sys_ct,ts);
+%      y(k) = Cx(k)+Du(k)
 disp('***********************')
 disp('Discrete-Time Matrices:')
 disp('x(k+1)=A*x(k)+B*u(k)')
 disp('  y(k)=C*x(k)')
-A=sys_dt.A
-B=sys_dt.B
-C=sys_dt.C
-D=sys_dt.D                 
-
+A, B, C, D
 
 %% SFC
 disp('****************************************')
 disp('Continuous-time closed-loop eigenvalues:')
-Ts = 1; % settling time
-OS = 5; % overshoot percentage
-ps = [-1+j, -1-j]
+Ts_req = 2;     % design settling time [s] (requirement < 5 s)
+OS_req = 5;     % design overshoot [%]   (requirement < 15 %)
+zeta = -log(OS_req/100)/sqrt(pi^2 + log(OS_req/100)^2)
+wn   = 4/(zeta*Ts_req)
+ps = [-zeta*wn + 1j*wn*sqrt(1-zeta^2), -zeta*wn - 1j*wn*sqrt(1-zeta^2), -30, -35]
 
 disp('Discrete-time closed-loop eigenvalues:')
 pz = exp(ps*ts)
@@ -90,8 +91,15 @@ eig(A-B*F)
 
 %% Observer
 disp('****************************************')
+disp('Observability Matrix')
+OM=obsv(Ac,Cc)
+
+if (rank(OM)==n)
+    disp('System is observable!!!')
+end
+
 disp('Continuous-time observer eigenvalues:')
-po_s = [-10+j, -10-j]
+po_s = [-100, -110, -120, -130]
 disp('Discrete-time observer eigenvalues:')
 po_z = exp(po_s*ts)
 
@@ -111,6 +119,7 @@ if (linear_model==1)
     run('plots_Linear_case.m');
 else
     disp("Simulating Non-Linear System case..." + newline)
+    P_rip = [a b c h mp*lp^2 Dr Dp kt km Rm];
     sim('sim_DP2_2026_SFC_Nonlinear.slx');
     % modify the 'plots_Nonlinear_case.m' file to generate your plots
     run('plots_Nonlinear_case.m');

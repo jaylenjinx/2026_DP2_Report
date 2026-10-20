@@ -316,7 +316,7 @@ $\operatorname{eig}(A-BF)$.}
 % Nonlinear systems: linear AND nonlinear model. Plot with
 % plots_Linear_case.m / plots_Nonlinear_case.m, no scope screenshots.
 
-\optfig{assets/images/fig_q25_linear.png}{0.95}{Closed-loop response of the
+\optfig{assets/images/fig_linear_sfc_response.png}{0.95}{Closed-loop response of the
 linear model under state feedback.}{fig:q25_linear}
 
 \todo{Comment on Figure~\ref{fig:q25_linear}: overshoot, settling time,
@@ -326,51 +326,304 @@ steady-state error and control effort versus requirements. Add zooms.}
 \section*{Q3: Luenberger Observer Design \hfill (20 marks)}
 %=======================================================================
 
+The QUBE-Servo 2 measures only the two angles: the motor encoder gives
+$\theta$ and the pendulum encoder gives $\alpha$, so
+$y = C_c x = [\theta\;\;\alpha]^{\mathsf T}$. The velocities $\dot{\theta}$ and
+$\dot{\alpha}$ used by the state-feedback law of Q2 are not measured. They could
+be obtained by differencing the encoder signals, but at
+$T_s = 1~\mathrm{ms}$ a single encoder count
+($0.00307~\mathrm{rad} = 0.176^{\circ}$~\cite{qube_manual}) already appears as a
+$176^{\circ}/\mathrm{s}$ velocity step. Instead, a Luenberger observer
+reconstructs the full state from the measured outputs and the applied input,
+using the model of Q1.
+
 %-----------------------------------------------------------------------
 \subsection*{Q3.1) Observability}
 %-----------------------------------------------------------------------
-The observability matrix of the continuous-time model is
-\begin{equation}
-  \mathcal{O} = \begin{bmatrix} C_c\\ C_cA_c\\ \vdots\\ C_cA_c^{n-1}\end{bmatrix}.
+With $n = 4$ states and $p = 2$ outputs, the observability matrix of the
+continuous-time model~\eqref{eq:ct_ss} is the $np \times n = 8\times 4$ matrix
+(MATLAB: \texttt{OM = obsv(Ac,Cc)})
+\begin{equation}\label{eq:obsv}
+  \mathcal{O} =
+  \begin{bmatrix} C_c\\ C_cA_c\\ C_cA_c^{2}\\ C_cA_c^{3}\end{bmatrix}
+  =
+  \left[\begin{array}{rrrr}
+     1 & 0 & 0 & 0\\
+     0 & 1 & 0 & 0\\ \hline
+     0 & 0 & 1 & 0\\
+     0 & 0 & 0 & 1\\ \hline
+     0 & 54.236 & -6.179 & -1.786\\
+     0 & 167.67 & -6.107 & -5.521\\ \hline
+     0 & -634.55 & 49.086 & 75.128\\
+     0 & -1256.9 & 71.453 & 209.06
+  \end{array}\right].
 \end{equation}
-\todo{Numerical $\mathcal{O}$ (\texttt{obsv}), its rank and justification.}
+
+The first four rows of~\eqref{eq:obsv} form the $4\times4$ identity matrix,
+because $C_c$ selects the two angles and $C_cA_c$ selects the two angular
+velocities. Hence
+\begin{equation}
+  \operatorname{rank}(\mathcal{O}) = 4 = n,
+\end{equation}
+confirmed with \texttt{rank(OM)}, and the system is \textbf{observable}.
+
+From a control viewpoint, every state shows up in the measured outputs or in
+their time derivatives. The velocities are exactly the rates of change of the
+measured angles, so the initial state can be reconstructed from a finite window
+of input-output data. Rank~4 is reached with only the first time derivative,
+which means the observer only has to infer the velocities. The ZOH
+discretisation does not change this: \texttt{rank(obsv(A,C))} $= 4$ as well,
+because $T_s$ is far below the time scale of every open-loop mode (the open-loop
+eigenvalues are $0$, $9.95$, $-4.02$ and $-17.63~\mathrm{rad/s}$), so
+pathological sampling cannot occur.
 
 %-----------------------------------------------------------------------
 \subsection*{Q3.2) Observer Eigenvalues}
 %-----------------------------------------------------------------------
-\todo{Observer eigenvalues (typically several times faster than the SFC
-eigenvalues) in continuous and discrete time.}
+By the separation principle~\cite{aguilera2026}, the eigenvalues of the
+observer-based closed loop are the union of the controller eigenvalues,
+$\operatorname{eig}(A-BF)$, and the observer eigenvalues,
+$\operatorname{eig}(A-LC)$. The observer can therefore be designed
+independently. It should be clearly faster than the controller, so that the
+estimation error has vanished before it can noticeably affect the transient set
+by $F$.
+
+The state-feedback eigenvalues from Q2.3 are
+$s_{1,2} = -2 \pm j2.097$ (dominant pair: $\zeta = 0.69$,
+$\omega_n = 2.90~\mathrm{rad/s}$) and $s_3 = -30$, $s_4 = -35~\mathrm{rad/s}$.
+The observer eigenvalues are placed about three times faster than the fastest
+controller eigenvalue:
+\begin{equation}\label{eq:obs_poles_s}
+  s_{o} = \{-100,\; -110,\; -120,\; -130\}~\mathrm{rad/s}.
+\end{equation}
+The reasons for this choice are:
+\begin{itemize}[nosep]
+  \item The slowest observer mode has a time constant
+        $\tau = 1/100 = 10~\mathrm{ms}$, so the estimation error settles
+        ($\approx 4\tau$) in about $40~\mathrm{ms}$. That is $50$ times faster
+        than the dominant controller pair and about $54$ times shorter than the
+        $2.15~\mathrm{s}$ closed-loop settling time.
+  \item Real eigenvalues give a non-oscillatory error decay. They are distinct
+        because \texttt{place} only allows each eigenvalue a multiplicity of
+        up to $\operatorname{rank}(C) = 2$.
+  \item The observer is not made faster still. Faster eigenvalues need a larger
+        gain $L$, which passes more encoder quantisation noise into $\hat{x}$
+        and increases the initial ``peaking'' of the velocity estimates
+        (Figure~\ref{fig:q34_estimation}). At $|s_o|T_s \le 0.13$, each
+        observer mode still spans more than seven samples, so the discrete
+        design is well resolved.
+\end{itemize}
+
+Mapping these to the $z$-plane with $z = e^{sT_s}$, $T_s = 1~\mathrm{ms}$
+(MATLAB: \texttt{po\_z = exp(po\_s*ts)}), gives the discrete-time observer
+eigenvalues
+\begin{equation}\label{eq:obs_poles_z}
+  z_{o} = \{0.9048,\; 0.8958,\; 0.8869,\; 0.8781\}.
+\end{equation}
+All lie on the positive real axis, inside the unit circle and closer to the
+origin than the controller eigenvalues
+$\{0.9980 \pm j0.0021,\; 0.9704,\; 0.9656\}$. This confirms in the $z$-domain
+that the estimation error decays faster than the regulated response.
 
 %-----------------------------------------------------------------------
 \subsection*{Q3.3) Observer Gain}
 %-----------------------------------------------------------------------
-For the estimator
+The discrete-time Luenberger observer is
 \begin{equation}\label{eq:observer}
   \hat{x}(k+1) = A\hat{x}(k) + Bu(k) + L\bigl(y(k)-\hat{y}(k)\bigr),
+  \qquad \hat{y}(k) = C\hat{x}(k),
 \end{equation}
-\todo{$L$ from \texttt{place(A',C',po\_z)'} and verification of
-$\operatorname{eig}(A-LC)$.}
+i.e.\ a copy of the plant model driven by the same input and corrected by the
+output innovation $y(k)-\hat{y}(k)$. Subtracting~\eqref{eq:observer} from the
+plant model~\eqref{eq:dt_ss}, the estimation error
+$e(k) = x(k) - \hat{x}(k)$ evolves as
+\begin{equation}\label{eq:err_dyn}
+  e(k+1) = (A - LC)\,e(k),
+\end{equation}
+independent of $u(k)$. Because
+$\operatorname{eig}(A-LC) = \operatorname{eig}(A^{\mathsf T}-C^{\mathsf T}L^{\mathsf T})$,
+choosing $L$ is the dual of a state-feedback design for the pair
+$(A^{\mathsf T}, C^{\mathsf T})$. It is solvable because $(A, C)$ is observable
+(Q3.1). In MATLAB:
+\begin{lstlisting}
+po_z = exp([-100 -110 -120 -130]*ts);
+Lo   = place(A', C', po_z)';
+eig(A - Lo*C)
+\end{lstlisting}
+which gives the $n\times p = 4\times2$ observer gain
+\begin{equation}\label{eq:L}
+  L =
+  \begin{bmatrix}
+     0.2108  & -0.0104\\
+    -0.0152  &  0.2120\\
+    10.466   & -1.188\\
+    -2.168   & 10.861
+  \end{bmatrix}.
+\end{equation}
+Evaluating the eigenvalues of the error-dynamics matrix gives
+\begin{equation}
+  \operatorname{eig}(A - LC) = \{0.9048,\; 0.8958,\; 0.8869,\; 0.8781\},
+\end{equation}
+identical to~\eqref{eq:obs_poles_z}, so the observer has the desired
+eigenvalues.
+
+The structure of $L$ has a clear physical reading. Column~1 weights the
+$\theta$ innovation $\theta - \hat{\theta}$, and column~2 weights the $\alpha$
+innovation $\alpha - \hat{\alpha}$. Each angle estimate is corrected mainly by
+its own measurement ($0.21$ per sample, on the diagonal of the first two
+rows). Each velocity estimate is corrected by about $10.5~\mathrm{s^{-1}}$ per
+radian of its own angle innovation, which works like a model-based, filtered
+differentiator. The small off-diagonal terms account for the coupling between
+the arm and the pendulum in $A$.
 
 %-----------------------------------------------------------------------
 \subsection*{Q3.4) Closed-Loop Implementation}
 %-----------------------------------------------------------------------
-% run_observer = 1; u(k) = -F(x_hat(k) - x*) + u*.
-% Initialise x_hat(0) != x(0) to show convergence (Remark 5).
-
-The controller now uses the estimated state:
+The observer was implemented in the provided Simulink models
+(\path{sim_DP2_2026_SFC_Linear.slx} and
+\path{sim_DP2_2026_SFC_Nonlinear.slx}) inside the MATLAB Function block
+\emph{Digital Controller}, which is sampled at $T_s = 1~\mathrm{ms}$. The
+controller now feeds back the estimated state:
 \begin{equation}\label{eq:sfc_obs}
   u(k) = -F\bigl(\hat{x}(k) - x^\star\bigr) + u^\star.
 \end{equation}
+The core of the block (with \texttt{run\_observer = 1}) is:
+\begin{lstlisting}
+x_hat = x_hat_k;                            % estimate used at sample k
+xu_ref = [A-eye(n) B; C zeros(p,m)] \ [zeros(n,1); y_ref];
+x_ref = xu_ref(1:n);  u_ref = xu_ref(n+1:n+m);   % Q2.2
+u_k = -F*(x_hat_k - x_ref) + u_ref;       
+u_k = min(max(u_k, -10), 10);               % +/-10 V amplifier limit
+y_hat   = C*x_hat_k;                        % Luenberger observer (Q3.3)
+x_hat_k = A*x_hat_k + B*u_k + Lo*(y_k - y_hat);
+\end{lstlisting}
+The observer is updated with the \emph{saturated} voltage that is actually
+applied to the motor. Feeding it the unsaturated command would make its model
+input differ from the plant input whenever the amplifier limits, and the
+estimate would drift.
 
-\optfig{assets/images/fig_q34_estimation.png}{0.95}{True and estimated states
-with $\hat{x}(0)\neq x(0)$.}{fig:q34_estimation}
+The controller was applied to both the linearised model (Q1.1) and the
+nonlinear rotary-pendulum model. The nonlinear model is the same
+Euler--Lagrange model before linearisation, with
+$\sin\alpha$, $\cos\alpha$, $\dot{\theta}^2$, $\dot{\alpha}^2$ and
+$\dot{\theta}\dot{\alpha}$ terms retained, implemented in
+\path{rip_nonlinear_dynamics.m}. Both runs use the arm reference
+$\theta^\star = 30^{\circ}$ applied as a step at $t = 1~\mathrm{s}$ and
+$\alpha^\star = 0$ (upright), for which Q2.2 gives
+$x^\star = [\theta^\star\;0\;0\;0]^{\mathsf T}$ and $u^\star = 0$. As Remark~5
+asks, the plant starts at rest upright, $x(0) = 0$, while the observer is
+deliberately initialised with
+\begin{equation}
+  \hat{x}(0) = \bigl[\,10^{\circ}\;\; -5^{\circ}\;\; 0\;\; 0\,\bigr]^{\mathsf T}
+  \neq x(0).
+\end{equation}
+All signals were exported to the workspace and plotted with
+\path{plot_closed_loop.m}. The script \path{run_all_cases.m}
+regenerates every figure.
 
-\optfig{assets/images/fig_q34_closed_loop.png}{0.95}{Closed-loop response with
-observer-based state feedback.}{fig:q34_closed_loop}
+\textbf{Observer convergence.}
+Figure~\ref{fig:q34_estimation} compares the true and estimated states of the
+nonlinear model, with a zoom on the first $0.1~\mathrm{s}$.
+Figure~\ref{fig:q34_error} shows the estimation error on a logarithmic scale.
+The angle estimates converge onto the measured angles within a few
+milliseconds, and both angle errors stay below $0.1^{\circ}$ after
+$54~\mathrm{ms}$ in both the linear and nonlinear cases. This agrees with the
+$\approx 40~\mathrm{ms}$ predicted from the slowest observer eigenvalue in Q3.2.
+After the first few samples, the four error curves in
+Figure~\ref{fig:q34_error} are straight lines on the logarithmic axis, which
+is the exponential decay of~\eqref{eq:err_dyn}. The final error is about
+$10^{-12}$, at the level of numerical round-off.
 
-\todo{Comment on Figures~\ref{fig:q34_estimation}
-and~\ref{fig:q34_closed_loop}: observer convergence and closed-loop
-performance against requirements.}
+The zoom in Figure~\ref{fig:q34_estimation} also shows the price of a fast
+observer. The velocities are not measured, so the initial $10^{\circ}$ and
+$-5^{\circ}$ angle innovations are converted through the large velocity gains of
+$L$ into velocity-estimate errors that peak at $389^{\circ}/\mathrm{s}$
+($\dot{\theta}$) and $254^{\circ}/\mathrm{s}$ ($\dot{\alpha}$) about
+$8$--$9~\mathrm{ms}$ after start-up. This is the typical peaking of a
+high-gain observer, and it is why the observer eigenvalues were not pushed
+further left.
+
+\textbf{Closed-loop performance.}
+Figures~\ref{fig:q34_closed_loop_L} and~\ref{fig:q34_closed_loop_NL} show the
+response of the observer-based controller on the linear and nonlinear models.
+Table~\ref{tab:q34_metrics} compares it with the full-state feedback of Q2.5.
+Because $u(k)$ is computed from $\hat{x}(k)$, the wrong initial estimate acts
+like an initial-condition disturbance. At $k = 0$ the controller ``sees'' the
+pendulum $5^{\circ}$ off upright and commands $u(0) = 8.98~\mathrm{V}$. The
+voltage then saturates at $-10~\mathrm{V}$ for $21~\mathrm{ms}$ while the
+estimate converges. This briefly kicks the pendulum to $|\alpha| = 5.8^{\circ}$,
+compared with $1.5^{\circ}$ under full-state feedback, and moves the arm by
+about $12^{\circ}$ before the controller recovers. Under full-state feedback,
+nothing happens before the step.
+
+Once the estimation error has converged (well before the step at
+$t = 1~\mathrm{s}$), $\hat{x}(k) \approx x(k)$ and, by the separation
+principle, the response is governed only by $\operatorname{eig}(A - BF)$. The
+step response is accordingly almost identical to Q2.5: $4.6\,\%$ overshoot
+(requirement $< 15\,\%$), $2.16~\mathrm{s}$ settling time to the $2\,\%$ band
+(requirement $< 5~\mathrm{s}$) and negligible steady-state error. The slightly
+lower overshoot than in Q2.5 comes from the arm still returning from the
+start-up transient when the step is applied. All requirements are met in both
+models. Saturation briefly breaks the linearity that the separation principle
+assumes. Because the observer uses the applied (saturated) input, the
+estimation-error dynamics~\eqref{eq:err_dyn} are unaffected and the estimate
+stays correct throughout.
+
+\begin{table}[H]\centering
+\caption{Simulated step-response metrics ($\theta^\star = 30^{\circ}$ at
+$t = 1~\mathrm{s}$; overshoot and $2\,\%$ settling time measured from the
+step).}
+\label{tab:q34_metrics}
+\begin{tabular}{llcccc}
+\toprule
+\textbf{Model} & \textbf{Feedback} & \textbf{OS [\%]} & $\bm{t_s}$ \textbf{[s]} &
+  $\bm{\max|\alpha|}$ \textbf{[deg]} & $\bm{\max|V_m|}$ \textbf{[V]}\\
+\midrule
+Linear    & $x(k)$ (Q2.5)       & 5.32 & 2.15 & 1.47 & 2.18\\
+Nonlinear & $x(k)$ (Q2.5)       & 5.30 & 2.15 & 1.47 & 2.18\\
+Linear    & $\hat{x}(k)$ (Q3.4) & 4.64 & 2.16 & 5.82 & 10.0 (sat.)\\
+Nonlinear & $\hat{x}(k)$ (Q3.4) & 4.59 & 2.16 & 5.84 & 10.0 (sat.)\\
+\midrule
+\multicolumn{2}{l}{Requirement} & $< 15$ & $< 5$ & -- & $\le 10$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The linear and nonlinear responses differ by less than $0.1$ percentage points
+of overshoot. The pendulum never leaves $|\alpha| < 6^{\circ}$, where
+$\sin\alpha \approx \alpha$ is accurate to better than $0.2\,\%$, so the
+linearised model on which both $F$ and $L$ are based remains a faithful
+description of the plant.
+
+On the real QUBE-Servo 2, two practical points follow from these results.
+First, the start-up kick can be avoided by initialising $\hat{\theta}(0)$ and
+$\hat{\alpha}(0)$ with the first encoder readings, since only the
+unmeasured velocities then need to be estimated. Second, the simulated
+steady-state error is zero only because the model is exact. Unmodelled
+Coulomb friction and parameter mismatch on the hardware would leave an offset
+in $\theta$ that this proportional state feedback cannot remove without
+integral action.
+
+\optfig{assets/images/fig_nonlinear_obs_estimation.png}{1.0}{True ($x$, solid)
+and estimated ($\hat{x}$, dashed) states of the nonlinear model with
+$\hat{x}(0) = [10^{\circ}\; -5^{\circ}\; 0\; 0]^{\mathsf T} \neq x(0) = 0$.
+Left: full simulation; right: zoom on the first $0.1~\mathrm{s}$ showing
+observer convergence.}{fig:q34_estimation}
+
+\optfig{assets/images/fig_linear_obs_error.png}{0.9}{Magnitude of the
+estimation error $e = x - \hat{x}$ (linear model, logarithmic scale) during the
+first $0.2~\mathrm{s}$; the straight-line decay reflects the exponential error
+dynamics $e(k+1) = (A - LC)e(k)$.}{fig:q34_error}
+
+\optfig{assets/images/fig_linear_obs_response.png}{0.85}{Observer-based state
+feedback on the linear model: arm angle $\theta$ with reference $\theta^\star$
+(dotted lines: $\pm2\,\%$ band), pendulum angle $\alpha$, and motor voltage
+$V_m$.}{fig:q34_closed_loop_L}
+
+\optfig{assets/images/fig_nonlinear_obs_response.png}{0.85}{Observer-based state
+feedback on the nonlinear model: arm angle $\theta$ with reference $\theta^\star$
+(dotted lines: $\pm2\,\%$ band), pendulum angle $\alpha$, and motor voltage
+$V_m$.}{fig:q34_closed_loop_NL}
 
 \clearpage
 

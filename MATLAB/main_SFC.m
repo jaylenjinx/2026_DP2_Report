@@ -7,7 +7,7 @@
 % A/Prof Ricardo P. Aguilera
 %
 % QUBE-Servo 2 rotary inverted pendulum, x = [theta alpha theta_dot alpha_dot]'
-% (alpha = 0 upright). Run setup_simulink_models.m once before this file.
+% (alpha = 0 upright). SFC design as in dp2_q2.m (Q2), observer added for Q3.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 clc
@@ -18,8 +18,8 @@ evalc('dp2_q1');    % Ac, Bc, Cc, Dc, A, B, C, D, ts = 1 ms and parameters
 format short g
 
 %% Simulation Settings
-Tsim = 10;          % Simulation duration [s]
-theta_ref = deg2rad(30);    % rotary arm step reference at t = 1 s [rad]
+Tsim = 15;          % Simulation duration [s]
+theta_ref = 5*pi/180;   % arm step amplitude, y1_ref Step block [rad]
 
 % only run your linear model if you do not have a nonlinear one.
 linear_model = 1;   % 1: control the linear model
@@ -32,12 +32,14 @@ if exist('batch_case', 'var')
     run_observer = batch_case(2);
 end
 
-% Plant starts at rest upright; the observer starts with a deliberate error
-% (Remark 5) so its convergence is visible.
-x0_NL   = [0 0 0 0]';
-x_hat_o = [deg2rad(10) deg2rad(-5) 0 0]';
+% Plant starts at rest upright (integrator ICs = 0); the observer starts with
+% a deliberate error (Remark 5) so its convergence is visible. With the observer,
+% the step is delayed to t = 5 s so the start-up transient caused by x_hat(0)
+% has decayed before the tracking test (Q2.5 keeps the step at t = 1 s).
+x_hat_o = [3*pi/180 -1*pi/180 0 0]';
+step_time = 1 + 4*run_observer;
 
-save_figures = true;   % export PNGs to ../Report/assets/images
+save_figures = true;   % observer figures are exported to ../Report/assets/images
 
 %% Continuous-time state space model
 disp('*************************')
@@ -74,11 +76,8 @@ A, B, C, D
 %% SFC
 disp('****************************************')
 disp('Continuous-time closed-loop eigenvalues:')
-Ts_req = 2;     % design settling time [s] (requirement < 5 s)
-OS_req = 5;     % design overshoot [%]   (requirement < 15 %)
-zeta = -log(OS_req/100)/sqrt(pi^2 + log(OS_req/100)^2)
-wn   = 4/(zeta*Ts_req)
-ps = [-zeta*wn + 1j*wn*sqrt(1-zeta^2), -zeta*wn - 1j*wn*sqrt(1-zeta^2), -30, -35]
+% Q2.3 design (dp2_q2.m): zeta = 0.6, wn = 2.5 rad/s dominant pair, two faster poles
+ps = [-1.5+2i, -1.5-2i, -6, -8]
 
 disp('Discrete-time closed-loop eigenvalues:')
 pz = exp(ps*ts)
@@ -98,8 +97,9 @@ if (rank(OM)==n)
     disp('System is observable!!!')
 end
 
+% Q3.2: about 5x faster than the fastest SFC pole (-8)
 disp('Continuous-time observer eigenvalues:')
-po_s = [-100, -110, -120, -130]
+po_s = [-40, -45, -50, -55]
 disp('Discrete-time observer eigenvalues:')
 po_z = exp(po_s*ts)
 
@@ -114,13 +114,24 @@ disp(newline + "*******************************")
 warning('off','all')
 if (linear_model==1)
     disp("Simulating Linear System case..." + newline)
-    sim('sim_DP2_2026_SFC_Linear.slx');
-    % modify the 'plots_Linear_case.m' file to generate your plots
-    run('plots_Linear_case.m');
+    mdl = 'sim_DP2_2026_SFC_Linear';
+    load_system(mdl); set_param([mdl '/y1_ref'], 'Time', num2str(step_time));
+    sim(mdl);
+    close_system(mdl, 0);   % discard the step-time change, keep the saved model as is
+    if run_observer
+        plot_closed_loop(time, u(:,1), x_L, x_hat, theta_ref, step_time, 'Linear', save_figures);
+    else
+        run('plots_Linear_case.m');     % Q2.5 figures
+    end
 else
     disp("Simulating Non-Linear System case..." + newline)
-    P_rip = [a b c h mp*lp^2 Dr Dp kt km Rm];
-    sim('sim_DP2_2026_SFC_Nonlinear.slx');
-    % modify the 'plots_Nonlinear_case.m' file to generate your plots
-    run('plots_Nonlinear_case.m');
+    mdl = 'sim_DP2_2026_SFC_Nonlinear';
+    load_system(mdl); set_param([mdl '/y1_ref'], 'Time', num2str(step_time));
+    sim(mdl);
+    close_system(mdl, 0);
+    if run_observer
+        plot_closed_loop(time, u(:,1), x_NL, x_hat, theta_ref, step_time, 'Nonlinear', save_figures);
+    else
+        run('plots_Nonlinear_case.m');  % Q2.5 figures
+    end
 end

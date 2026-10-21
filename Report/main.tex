@@ -51,17 +51,20 @@
 
 % ---- figure that degrades to a placeholder box if the file is missing ----
 %  \optfig{path}{width fraction}{caption}{label}
+%  Paths are relative to the repo root; ../ also lets it build from Report/.
+\graphicspath{{./}{../}}
 \newcommand{\optfig}[4]{%
   \begin{figure}[H]\centering
   \IfFileExists{#1}{\includegraphics[width=#2\linewidth]{#1}}%
+    {\IfFileExists{../#1}{\includegraphics[width=#2\linewidth]{../#1}}%
     {\fbox{\parbox[c][3.2cm][c]{0.9\linewidth}{\centering
-      \textit{[ Insert \texttt{\detokenize{#1}} here ]}}}}%
+      \textit{[ Insert \texttt{\detokenize{#1}} here ]}}}}}%
   \caption{#3}\label{#4}\end{figure}}
 
 %------------------------------- header --------------------------------
 \fancypagestyle{uts}{%
   \fancyhf{}
-  \fancyhead[L]{\includegraphics[height=22pt]{assets/logos/uts_logo.png}\quad
+  \fancyhead[L]{\includegraphics[height=22pt]{Report/assets/logos/uts_logo.png}\quad
                 \textbf{Demonstration Practical 2}}
   \fancyhead[R]{\footnotesize\begin{tabular}{@{}r@{}}
                 41277 Control Design\\ Spring 2026\\
@@ -78,7 +81,7 @@
 %=========================== COVER PAGE ================================
 \thispagestyle{empty}
 
-\includegraphics[height=30pt]{assets/logos/uts_logo.png}\hfill
+\includegraphics[height=30pt]{Report/assets/logos/uts_logo.png}\hfill
 {\large\bfseries Faculty of Engineering and IT}
 
 \vspace{10pt}
@@ -176,87 +179,410 @@ contribution level. If not indicated, all students get the same mark.}
 
 %=======================================================================
 \section*{Q1: State-Space Model \hfill (40 marks)}
-%=======================================================================
-
-%-----------------------------------------------------------------------
 \subsection*{Q1.1) System Modelling}
-%-----------------------------------------------------------------------
-% Derive from first principles (Newton / Kirchhoff / Lagrange).
-% State n, m, p; give Ac, Bc, Cc, Dc. If nonlinear, Jacobian-linearise
-% about a chosen equilibrium point (Remark 1).
 
-Based on~\cite{aguilera2026}, the QUBE-Servo 2 is modelled as
-\begin{subequations}\label{eq:ct_ss}
+\textbf{Definitions and assumptions.}
+The QUBE-Servo 2 rotary pendulum comprises a motor-driven horizontal arm
+and a pendulum hinged at its tip. Encoders measure the two angles
+\cite{qube_manual}. Let $\theta$ denote arm angle and $\alpha$ pendulum
+angle from the upward vertical, with $\alpha=0$ upright. Use radians.
+Let $\boldsymbol e_r$ point along the arm, $\boldsymbol e_t$ point in the
+direction of increasing $\theta$ and $\boldsymbol e_z$ point upward.
+Positive $\alpha$ tilts the pendulum towards $-\boldsymbol e_t$.
+This explicitly fixes the coupling signs.
+
+The arm and pendulum are approximated as rigid uniform slender rods.
+The pendulum centre of mass is at $l_p=L_p/2$. Viscous damping represents
+friction. Motor inductance, structural flexibility, nonlinear friction
+and pendulum longitudinal-axis inertia are neglected. The motor is direct
+drive. These are nominal modelling assumptions, not measurements of
+the particular laboratory unit.
+\begin{equation}
+x=\begin{bmatrix}\theta&\alpha&\dot\theta&\dot\alpha\end{bmatrix}^{T},
+\qquad u=V_m,\qquad y=\begin{bmatrix}\theta&\alpha\end{bmatrix}^{T}.
+\end{equation}
+Thus there are $n=4$ states, $m=1$ input and $p=2$ outputs. Velocities
+are states even though only the angles are directly measured.
+
+\textbf{Motor electrical dynamics.}
+Kirchhoff's voltage law and the motor relations give
 \begin{align}
-  \dot{x}(t) &= A_c\,x(t) + B_c\,u(t),\\
-  y(t)       &= C_c\,x(t) + D_c\,u(t),
+V_m&=R_mi_m+L_m\frac{di_m}{dt}+e_b,\\
+e_b&=k_m\dot\theta,\qquad \tau_m=k_ti_m.
+\end{align}
+Neglecting inductance,
+\begin{equation}\label{eq:motor}
+i_m=\frac{V_m-k_m\dot\theta}{R_m},\qquad
+\boxed{\tau_m=\frac{k_t}{R_m}V_m-\frac{k_tk_m}{R_m}\dot\theta.}
+\end{equation}
+Voltage generates torque and back emf reduces the current as speed rises.
+
+\textbf{Inertias and energy.}
+For a uniform rod, $dm=(m/L)\,dr$. The relevant inertias are
+\begin{align}
+J_{\mathrm{arm}}&=\int_0^{L_r}r^2\frac{m_r}{L_r}\,dr
+=\frac13m_rL_r^2,\qquad J_r=J_{\mathrm{arm}}+J_m+J_h,\\
+J_p&=\int_{-L_p/2}^{L_p/2}r^2\frac{m_p}{L_p}\,dr
+=\frac1{12}m_pL_p^2.
+\end{align}
+Here $J_r$ includes the arm, rotor and hub. The arm rod approximation
+excludes the separately added rotor and hub. No inertia-disc module is
+included. $J_p$ is about the pendulum centre of mass; the hinge inertia is
+$J_p+m_pl_p^2=\frac13m_pL_p^2$ by the parallel-axis theorem.
+
+The pendulum centre-of-mass position is
+\begin{equation}
+\boldsymbol r_p=L_r\boldsymbol e_r-l_p\sin\alpha\,\boldsymbol e_t
++l_p\cos\alpha\,\boldsymbol e_z.
+\end{equation}
+Using $\dot{\boldsymbol e}_r=\dot\theta\boldsymbol e_t$ and
+$\dot{\boldsymbol e}_t=-\dot\theta\boldsymbol e_r$ gives
+\begin{align}
+\dot{\boldsymbol r}_p&=l_p\sin\alpha\,\dot\theta\,\boldsymbol e_r
++(L_r\dot\theta-l_p\cos\alpha\,\dot\alpha)\boldsymbol e_t
+-l_p\sin\alpha\,\dot\alpha\,\boldsymbol e_z,\\
+\|\dot{\boldsymbol r}_p\|^2&=(L_r^2+l_p^2\sin^2\alpha)\dot\theta^2
++l_p^2\dot\alpha^2-2L_rl_p\cos\alpha\,\dot\theta\dot\alpha.
+\end{align}
+Neglecting longitudinal-axis inertia, pendulum rotation about its centre
+of mass contributes
+\[\frac12J_p(\dot\alpha^2+\sin^2\alpha\,\dot\theta^2).\]
+Therefore the total kinetic and potential energies are
+\begin{align}
+T&=\frac12J_r\dot\theta^2+\frac12m_p\|\dot{\boldsymbol r}_p\|^2
++\frac12J_p(\dot\alpha^2+\sin^2\alpha\,\dot\theta^2),\\
+U&=m_pgl_p\cos\alpha.
+\end{align}
+Potential energy is referenced to the hinge height and is maximal upright.
+
+Define
+\begin{equation}\label{eq:constants}
+a=J_r+m_pL_r^2,\quad b=J_p+m_pl_p^2,\quad
+c=m_pL_rl_p,\quad h=m_pgl_p.
+\end{equation}
+The Lagrangian is
+\begin{equation}\label{eq:lagrangian}
+\mathcal L=T-U=
+\frac12(a+b\sin^2\alpha)\dot\theta^2+\frac12b\dot\alpha^2
+-c\cos\alpha\,\dot\theta\dot\alpha-h\cos\alpha.
+\end{equation}
+
+\textbf{Euler--Lagrange equations.}
+For $q\in\{\theta,\alpha\}$,
+\begin{equation}
+\frac{d}{dt}\left(\frac{\partial\mathcal L}{\partial\dot q}\right)
+-\frac{\partial\mathcal L}{\partial q}=Q_q,\qquad
+Q_\theta=\tau_m-D_r\dot\theta,\quad Q_\alpha=-D_p\dot\alpha.
+\end{equation}
+The arm derivatives are
+\begin{align}
+\frac{\partial\mathcal L}{\partial\theta}&=0,\\
+\frac{\partial\mathcal L}{\partial\dot\theta}
+&=(a+b\sin^2\alpha)\dot\theta-c\cos\alpha\,\dot\alpha,\\
+\frac{d}{dt}\left(\frac{\partial\mathcal L}{\partial\dot\theta}\right)
+&=(a+b\sin^2\alpha)\ddot\theta
++2b\sin\alpha\cos\alpha\,\dot\alpha\dot\theta
+-c\cos\alpha\,\ddot\alpha+c\sin\alpha\,\dot\alpha^2.
+\end{align}
+The pendulum derivatives are
+\begin{align}
+\frac{\partial\mathcal L}{\partial\dot\alpha}
+&=b\dot\alpha-c\cos\alpha\,\dot\theta,\\
+\frac{d}{dt}\left(\frac{\partial\mathcal L}{\partial\dot\alpha}\right)
+&=b\ddot\alpha-c\cos\alpha\,\ddot\theta
++c\sin\alpha\,\dot\alpha\dot\theta,\\
+\frac{\partial\mathcal L}{\partial\alpha}
+&=b\sin\alpha\cos\alpha\,\dot\theta^2
++c\sin\alpha\,\dot\theta\dot\alpha+h\sin\alpha.
+\end{align}
+Define $k_v=k_t/R_m$ and $d=D_r+k_tk_m/R_m$. The resulting
+nonlinear mechanical equations, including motor torque, are
+\begin{samepage}
+\begin{subequations}\label{eq:eom}
+\begin{align}
+(a+b\sin^2\alpha)\ddot\theta-c\cos\alpha\,\ddot\alpha
++2b\sin\alpha\cos\alpha\,\dot\alpha\dot\theta
++c\sin\alpha\,\dot\alpha^2&=k_vu-d\dot\theta,\\
+-c\cos\alpha\,\ddot\theta+b\ddot\alpha
+-b\sin\alpha\cos\alpha\,\dot\theta^2-h\sin\alpha&=-D_p\dot\alpha.
 \end{align}
 \end{subequations}
-with $n = \todo{n}$ states, $m = \todo{m}$ inputs and $p = \todo{p}$ outputs.
+\end{samepage}
+Fixing the arm and neglecting friction gives $b\ddot\alpha=h\sin\alpha$.
+A small positive tilt therefore accelerates away from upright, which
+provides a physical check on the gravity sign.
 
-\todo{Derivation of the motor/load dynamics and the state vector $x(t)$.}
+\textbf{Nonlinear state-space representation.}
+Define the torque expressions
+\begin{align}
+r_1(x,u)&=k_vu-dx_3-2b\sin x_2\cos x_2\,x_4x_3-c\sin x_2\,x_4^2,\\
+r_2(x,u)&=b\sin x_2\cos x_2\,x_3^2+h\sin x_2-D_px_4.
+\end{align}
+The equations of motion become
+\begin{equation}
+\underbrace{\begin{bmatrix}
+a+b\sin^2\alpha&-c\cos\alpha\\-c\cos\alpha&b
+\end{bmatrix}}_{M(\alpha)}
+\begin{bmatrix}\ddot\theta\\\ddot\alpha\end{bmatrix}
+=\begin{bmatrix}r_1\\r_2\end{bmatrix}.
+\end{equation}
+The mass-matrix determinant and inverse are
+\begin{align}
+\Delta(\alpha)&=b(a+b\sin^2\alpha)-c^2\cos^2\alpha,\\
+M^{-1}(\alpha)&=\frac1{\Delta(\alpha)}
+\begin{bmatrix}b&c\cos\alpha\\c\cos\alpha&a+b\sin^2\alpha\end{bmatrix}.
+\end{align}
+Hence
+\begin{equation}\label{eq:nonlinear_ss}
+\boxed{\dot x=f(x,u)=
+\begin{bmatrix}
+x_3\\x_4\\
+(br_1+c\cos x_2\,r_2)/\Delta(x_2)\\
+(c\cos x_2\,r_1+(a+b\sin^2x_2)r_2)/\Delta(x_2)
+\end{bmatrix}.}
+\end{equation}
+For the parameters in Q1.2, $ab-c^2>0$ and
+$\Delta(\alpha)=(ab-c^2)+(b^2+c^2)\sin^2\alpha>0$, so this idealised
+model is nonsingular for every pendulum angle.
 
-%-----------------------------------------------------------------------
+\textbf{Equilibrium and Jacobian linearisation.}
+An upright stationary equilibrium is
+\begin{equation}
+x_e=\begin{bmatrix}\theta_e&0&0&0\end{bmatrix}^{T},\qquad u_e=0.
+\end{equation}
+Any fixed $\theta_e$ is an ideal equilibrium, since no restoring torque
+depends on arm angle. Choose $\theta_e=0$ for the numerical model.
+Define $\delta x=x-x_e$, $\delta u=u-u_e$ and $\delta y=y-y_e$.
+The first-order Taylor expansion is
+\begin{equation}\label{eq:ct_ss}
+\delta\dot x=A_c\delta x+B_c\delta u,\qquad
+\delta y=C_c\delta x+D_c\delta u,
+\end{equation}
+with Jacobians
+\begin{equation}
+A_c=\left.\frac{\partial f}{\partial x}\right|_e,\qquad
+B_c=\left.\frac{\partial f}{\partial u}\right|_e.
+\end{equation}
+At equilibrium, $r_1=r_2=0$ and $\Delta_0=ab-c^2$. Also,
+\begin{equation}
+\left.\frac{\partial(r_1,r_2)}{\partial x}\right|_e
+=\begin{bmatrix}0&0&-d&0\\0&h&0&-D_p\end{bmatrix},\qquad
+\left.\frac{\partial(r_1,r_2)}{\partial u}\right|_e
+=\begin{bmatrix}k_v\\0\end{bmatrix}.
+\end{equation}
+Derivatives of $M^{-1}$ multiply the zero equilibrium torque vector.
+Multiplying the above derivatives by
+$M^{-1}(0)=\Delta_0^{-1}\begin{bmatrix}b&c\\c&a\end{bmatrix}$ gives
+\begin{equation}\label{eq:Ac_symbolic}
+\boxed{A_c=
+\begin{bmatrix}
+0&0&1&0\\0&0&0&1\\
+0&ch/\Delta_0&-bd/\Delta_0&-cD_p/\Delta_0\\
+0&ah/\Delta_0&-cd/\Delta_0&-aD_p/\Delta_0
+\end{bmatrix},\quad
+B_c=\begin{bmatrix}0\\0\\bk_v/\Delta_0\\ck_v/\Delta_0\end{bmatrix}.}
+\end{equation}
+Since the outputs are the two angles with no direct voltage feedthrough,
+\begin{equation}\label{eq:CD}
+\boxed{C_c=\begin{bmatrix}1&0&0&0\\0&1&0&0\end{bmatrix},
+\qquad D_c=\begin{bmatrix}0\\0\end{bmatrix}.}
+\end{equation}
+This linearisation describes small deviations about upright; large-angle
+motion requires the nonlinear model in~\eqref{eq:nonlinear_ss}.
+
 \subsection*{Q1.2) System Parameters}
-%-----------------------------------------------------------------------
-% Use the datasheet values; if any are missing, identify them in MATLAB
-% from experimental input-output data.
 
-The physical parameters of the QUBE-Servo 2 are given in
-Table~\ref{tab:params}, taken from the manufacturer's user
-manual~\cite{qube_manual}.
-
+Table~\ref{tab:params} lists the manufacturer-supplied parameters relevant
+to the pendulum configuration. The inertia-disc parameters are excluded.
+Motor inductance is listed to justify its neglect, rather than being
+retained as a model state.
 \begin{table}[H]\centering
-\caption{QUBE-Servo 2 system parameters~\cite{qube_manual}.}
+\caption{Parameters from Table 2.2 of the QUBE-Servo 2 user manual~\cite{qube_manual}.}
 \label{tab:params}
-\begin{tabular}{llr}
+\begin{tabular}{lll}
 \toprule
-\textbf{Symbol} & \textbf{Description} & \textbf{Value}\\
+\textbf{Symbol}&\textbf{Description}&\textbf{Value}\\
 \midrule
-\multicolumn{3}{l}{\textit{DC motor}}\\
-$R_m$ & Terminal resistance            & $8.4~\Omega$\\
-$k_t$ & Torque constant                & $0.042~\mathrm{N\,m/A}$\\
-$k_m$ & Motor back-emf constant        & $0.042~\mathrm{V/(rad/s)}$\\
-$J_m$ & Rotor inertia                  & $4.0\times10^{-6}~\mathrm{kg\,m^2}$\\
-$L_m$ & Rotor inductance               & $1.16~\mathrm{mH}$\\
-$m_h$ & Module attachment hub mass     & $0.0106~\mathrm{kg}$\\
-$r_h$ & Module attachment hub radius   & $0.0111~\mathrm{m}$\\
-$J_h$ & Module attachment hub inertia  & $0.6\times10^{-6}~\mathrm{kg\,m^2}$\\
-\multicolumn{3}{l}{\textit{Inertia disc module}}\\
-$m_d$ & Disc mass                      & $0.053~\mathrm{kg}$\\
-$r_d$ & Disc radius                    & $0.0248~\mathrm{m}$\\
-\multicolumn{3}{l}{\textit{Rotary pendulum module}}\\
-$m_r$ & Rotary arm mass                & $0.095~\mathrm{kg}$\\
-$L_r$ & Rotary arm length              & $0.085~\mathrm{m}$\\
-$m_p$ & Pendulum link mass             & $0.024~\mathrm{kg}$\\
-$L_p$ & Pendulum link length           & $0.129~\mathrm{m}$\\
-\multicolumn{3}{l}{\textit{Encoders and amplifier}}\\
-      & Encoder resolution (quadrature) & $0.00307~\mathrm{rad/count}$\\
-      & Recommended output voltage      & $\pm10~\mathrm{V}$\\
+$R_m$&Motor resistance&$8.4~\Omega$\\
+$k_t$&Torque constant&$0.042~\mathrm{N\,m/A}$\\
+$k_m$&Back-emf constant&$0.042~\mathrm{V\,s/rad}$\\
+$J_m$&Motor rotor inertia&$4.0\times10^{-6}~\mathrm{kg\,m^2}$\\
+$J_h$&Attachment hub inertia&$0.6\times10^{-6}~\mathrm{kg\,m^2}$\\
+$L_m$&Inductance (neglected)&$1.16\times10^{-3}~\mathrm H$\\
+$m_r$&Arm mass&$0.095~\mathrm{kg}$\\
+$L_r$&Arm length, motor pivot to tip&$0.085~\mathrm m$\\
+$m_p$&Pendulum mass&$0.024~\mathrm{kg}$\\
+$L_p$&Pendulum full length&$0.129~\mathrm m$\\
+&Encoder resolution (quadrature)&$2\pi/2048~\mathrm{rad/count}$\\
+&Recommended amplifier output&$\pm10~\mathrm V$\\
+\bottomrule
+\end{tabular}
+\end{table}
+The motor electrical time constant is
+\begin{equation}
+\tau_{\mathrm{elec}}=\frac{L_m}{R_m}
+=\frac{1.16\times10^{-3}}{8.4}
+=1.3810\times10^{-4}~\mathrm s.
+\end{equation}
+This is short compared with the mechanical time scales, motivating the
+quasi-static current approximation. Retaining inductance would introduce
+motor current as a fifth state.
+
+The damping values in Table~\ref{tab:additional} are adopted from the
+manufacturer's student workbook, \emph{Pendulum State-Space Model}, in-lab
+exercise 6~\cite{qube_courseware}. That source reports them as experimentally
+obtained example values; they were not identified from this group's
+specific laboratory unit. No new experimental identification is claimed.
+\begin{table}[H]\centering
+\caption{Additional constants and their provenance.}
+\label{tab:additional}
+\begin{tabular}{llll}
+\toprule
+\textbf{Symbol}&\textbf{Description}&\textbf{Value}&\textbf{Basis}\\
+\midrule
+$D_r$&Arm damping&$0.0015~\mathrm{N\,m\,s/rad}$&Workbook example\\
+$D_p$&Pendulum damping&$0.0005~\mathrm{N\,m\,s/rad}$&Workbook example\\
+$g$&Gravity&$9.81~\mathrm{m/s^2}$&Standard approximation\\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\todo{Keep only the rows for the module used; add any identified parameters
-(e.g.\ viscous friction) and the identification method.}
+\begin{samepage}
+The derived dimensions and inertias are
+\begin{align}
+l_p&=L_p/2=0.0645~\mathrm m,\\
+J_{\mathrm{arm}}&=\tfrac13(0.095)(0.085)^2
+=2.2879167\times10^{-4}~\mathrm{kg\,m^2},\\
+J_r&=J_{\mathrm{arm}}+4.0\times10^{-6}+0.6\times10^{-6}
+=2.3339167\times10^{-4}~\mathrm{kg\,m^2},\\
+J_p&=\tfrac1{12}(0.024)(0.129)^2
+=3.3282\times10^{-5}~\mathrm{kg\,m^2}.
+\end{align}
+\end{samepage}
+The constants used in the matrices are
+\begin{align}
+a&=4.0679167\times10^{-4}~\mathrm{kg\,m^2},&
+b&=1.33128\times10^{-4}~\mathrm{kg\,m^2},\\
+c&=1.3158\times10^{-4}~\mathrm{kg\,m^2},&
+h&=0.01518588~\mathrm{N\,m},\\
+d&=0.00171~\mathrm{N\,m\,s/rad},&
+k_v&=0.005~\mathrm{N\,m/V},\\
+\Delta_0&=3.68420646\times10^{-8}~\mathrm{kg^2\,m^4}.&&
+\end{align}
+Substituting into~\eqref{eq:Ac_symbolic} gives
+\begin{equation}\label{eq:Ac_numeric}
+A_c\simeq
+\begin{bmatrix}
+0&0&1&0\\0&0&0&1\\
+0&54.2357795&-6.17904785&-1.78573054\\
+0&167.674898&-6.10719845&-5.52075014
+\end{bmatrix},\quad
+B_c\simeq\begin{bmatrix}0\\0\\18.0673914\\17.8573054\end{bmatrix}.
+\end{equation}
+The matrices $C_c,D_c$ remain exactly those in~\eqref{eq:CD}.
+These are nominal simulation parameters. Actual mass distribution, damping,
+encoder calibration and unmodelled friction may produce differences from
+hardware measurements.
 
-%-----------------------------------------------------------------------
 \subsection*{Q1.3) System Model Discretisation}
-%-----------------------------------------------------------------------
-% Justify the sampling time, then c2d (ZOH).
 
-A sampling time of $T_s = \todo{T_s}$ is selected because
-\todo{justification, e.g.\ relative to the closed-loop bandwidth}. Using a
-zero-order hold (\texttt{c2d}), the discrete-time model is
+Choose the sampling time
+\begin{equation}
+\boxed{T_s=0.001~\mathrm s,\qquad f_s=1/T_s=1000~\mathrm{Hz}.}
+\end{equation}
+This matches the value in the supplied ControLab template's
+\texttt{Hardware\_settings.m}~\cite{hardware_template}. It is also short
+relative to the mechanical dynamics, since
+$T_s\max_i|\lambda_i(A_c)|\simeq0.01763\ll1$ for this model. Hardware execution timing
+and achieved closed-loop performance must still be checked during
+implementation.
+
+Zero-order hold (ZOH) assumes that motor voltage is held constant between
+controller updates. The exact discretisation of the linearised model
+under this assumption is
+\begin{equation}\label{eq:zoh}
+A=e^{A_cT_s},\qquad
+B=\int_0^{T_s}e^{A_c\tau}B_c\,d\tau,\qquad C=C_c,\quad D=D_c.
+\end{equation}
+The MATLAB function \texttt{c2d} evaluates these expressions without
+requiring an inverse of $A_c$. This matters because the arm-position mode
+makes $A_c$ singular.
+The discrete-time model is
 \begin{subequations}\label{eq:dt_ss}
 \begin{align}
-  x(k+1) &= A\,x(k) + B\,u(k),\\
-  y(k)   &= C\,x(k) + D\,u(k).
+\delta x[k+1]&=A\delta x[k]+B\delta u[k],\\
+\delta y[k]&=C\delta x[k]+D\delta u[k].
 \end{align}
 \end{subequations}
+At the chosen zero equilibrium the deviation variables equal the
+original variables. The calculated matrices are
+\begin{equation}\label{eq:A_discrete}
+A\simeq
+\begin{bmatrix}
+1&2.70127657\!\times\!10^{-5}&9.96918625\!\times\!10^{-4}&-8.80391044\!\times\!10^{-7}\\
+0&1.00008362958&-3.04176177\!\times\!10^{-6}&9.97274363\!\times\!10^{-4}\\
+0&0.05392103923&0.99384536883&-0.00174835485\\
+0&0.16705290505&-0.00607175726&0.99458335877
+\end{bmatrix},
+\end{equation}
+\begin{equation}
+B\simeq\begin{bmatrix}
+9.00986699\times10^{-6}\\8.89404027\times10^{-6}\\
+0.0179959975588\\0.0177536761881
+\end{bmatrix},\quad
+C=\begin{bmatrix}1&0&0&0\\0&1&0&0\end{bmatrix},\quad
+D=\begin{bmatrix}0\\0\end{bmatrix}.
+\end{equation}
+The dimensions are $A\in\mathbb R^{4\times4}$,
+$B\in\mathbb R^{4\times1}$, $C\in\mathbb R^{2\times4}$ and
+$D\in\mathbb R^{2\times1}$. Displayed results are rounded;
+full precision must be retained in MATLAB for controller and observer
+design.
 
-\todo{Numerical $A$, $B$, $C$, $D$.}
+\textbf{MATLAB calculation for Q1.2--Q1.3.}
+The following code generates both models directly from the parameters.
+\begin{lstlisting}
+%% Physical parameters (SI units)
+Rm = 8.4; kt = 0.042; km = 0.042;
+mr = 0.095; Lr = 0.085; mp = 0.024; Lp = 0.129;
+Jm = 4e-6; Jh = 0.6e-6;
+Dr = 0.0015; Dp = 0.0005; g = 9.81;
 
+%% Inertias and intermediate constants
+lp = Lp/2;
+Jr = mr*Lr^2/3 + Jm + Jh;
+Jp = mp*Lp^2/12;
+a = Jr + mp*Lr^2;
+b = Jp + mp*lp^2;
+c = mp*Lr*lp;
+h = mp*g*lp;
+d = Dr + kt*km/Rm;
+kv = kt/Rm;
+Delta0 = a*b - c^2;
+
+%% Continuous model: [theta; alpha; theta_dot; alpha_dot]
+Ac = [0, 0, 1, 0;
+      0, 0, 0, 1;
+      0, c*h/Delta0, -b*d/Delta0, -c*Dp/Delta0;
+      0, a*h/Delta0, -c*d/Delta0, -a*Dp/Delta0];
+Bc = [0; 0; b*kv/Delta0; c*kv/Delta0];
+Cc = [1 0 0 0; 0 1 0 0];
+Dc = zeros(2,1);
+sys_ct = ss(Ac,Bc,Cc,Dc);
+
+%% Exact zero-order-hold discretisation
+ts = 0.001;
+sys_dt = c2d(sys_ct,ts,'zoh');
+format long g
+Ac, Bc, Cc, Dc
+A = sys_dt.A
+B = sys_dt.B
+C = sys_dt.C
+D = sys_dt.D
+\end{lstlisting}
+
+
+\clearpage
 %=======================================================================
 \section*{Q2: State-Feedback Control (SFC) \hfill (40 marks)}
 %=======================================================================
@@ -264,12 +590,42 @@ zero-order hold (\texttt{c2d}), the discrete-time model is
 %-----------------------------------------------------------------------
 \subsection*{Q2.1) Controllability}
 %-----------------------------------------------------------------------
-For this question, the controllability matrix of the continuous-time model
-is
+For the four-state continuous-time model obtained in Q1, the controllability matrix is
 \begin{equation}
-  \mathcal{C} = \begin{bmatrix} B_c & A_cB_c & \cdots & A_c^{n-1}B_c\end{bmatrix}.
+    \mathcal{C}
+    =
+    \begin{bmatrix}
+        B_c & A_cB_c & A_c^2B_c & A_c^3B_c
+    \end{bmatrix}.
 \end{equation}
-\todo{Numerical $\mathcal{C}$ (\texttt{ctrb}), its rank and justification.}
+
+Using the full-precision matrices in MATLAB gives
+\begin{equation}
+\mathcal{C} \approx
+\begin{bmatrix}
+0 & 18.06739 & -143.52761 & 2228.45594 \\
+0 & 17.85731 & -208.92687 & 5024.20650 \\
+18.06739 & -143.52761 & 2228.45594 & -34072.92634 \\
+17.85731 & -208.92687 & 5024.20650 & -76378.80248
+\end{bmatrix}.
+\end{equation}
+
+The rank is
+\begin{equation}
+    \operatorname{rank}(\mathcal{C}) = 4 = n.
+\end{equation}
+
+Therefore, the nominal continuous-time system is completely controllable. Although the system has only one motor-voltage input, the coupling between the rotary arm and pendulum allows this input to influence all four states.
+
+The controllability matrix of the discrete-time pair $(A,B)$ was also checked and has rank four at the selected sampling period $T_s=0.001\,\mathrm{s}$. Consequently, all four discrete-time closed-loop poles can be assigned using state feedback.
+
+The MATLAB calculations are:
+\begin{verbatim}
+CMc = ctrb(Ac,Bc);
+CMd = ctrb(A,B);
+rank(CMc)
+rank(CMd)
+\end{verbatim}
 
 %-----------------------------------------------------------------------
 \subsection*{Q2.2) State and Input References (Equilibrium Point)}
@@ -281,7 +637,53 @@ $x^\star$ and $u^\star$ satisfy
   \begin{bmatrix} x^\star\\ u^\star\end{bmatrix}
   = \begin{bmatrix} 0\\ y^\star\end{bmatrix}.
 \end{equation}
-\todo{Solve for $x^\star$, $u^\star$ for your setup.}
+
+The desired output is a specified arm angle while maintaining the pendulum upright:
+\begin{equation}
+    y^\star =
+    \begin{bmatrix}
+        \theta_{\mathrm{ref}} \\ 0
+    \end{bmatrix}.
+\end{equation}
+
+At a stationary equilibrium, both angular velocities and accelerations are zero. With $\alpha=0$, substitution into the nonlinear equations of motion gives zero required motor voltage. Hence,
+\begin{equation}
+    x^\star =
+    \begin{bmatrix}
+        \theta_{\mathrm{ref}} \\ 0 \\ 0 \\ 0
+    \end{bmatrix},
+    \qquad
+    u^\star = 0.
+\end{equation}
+
+These references satisfy
+\begin{equation}
+    (A-I)x^\star + Bu^\star = 0,
+    \qquad
+    Cx^\star + Du^\star = y^\star.
+\end{equation}
+
+For the simulation, a $5^\circ$ arm-angle step is applied at
+$t=1\,\mathrm{s}$. The reference is therefore
+\begin{equation}
+\theta_{\mathrm{ref}}(t)=
+\begin{cases}
+0, & t<1\,\mathrm{s},\\
+5\pi/180, & t\geq1\,\mathrm{s}.
+\end{cases}
+\end{equation}
+
+After the step,
+\begin{equation}
+    x^\star =
+    \begin{bmatrix}
+        0.08726646 \\ 0 \\ 0 \\ 0
+    \end{bmatrix},
+    \qquad
+    u^\star=0\,\mathrm{V}.
+\end{equation}
+
+The pendulum reference remains zero throughout. The two output references cannot be selected independently for a stationary upright equilibrium: an arbitrary nonzero pendulum tilt cannot be maintained with the arm stationary.
 
 %-----------------------------------------------------------------------
 \subsection*{Q2.3) Closed-Loop Eigenvalues}
@@ -297,17 +699,102 @@ below $5~\mathrm{s}$. The damping ratio and natural frequency follow from
 \end{equation}
 and the discrete-time eigenvalues from $z_i = e^{s_i T_s}$.
 
-\todo{Chosen $s_i$ and $z_i$ for all $n$ eigenvalues, with margin.}
+A $2\%$ settling band is used when evaluating the responses.
+
+For an ideal second-order system, the percentage overshoot is
+\begin{equation}
+    OS = 100
+    \exp\left(
+        \frac{-\pi\zeta}{\sqrt{1-\zeta^2}}
+    \right).
+\end{equation}
+
+An overshoot of $15\%$ corresponds to a damping ratio of approximately $\zeta=0.517$. To provide design margin, choose
+\begin{equation}
+    \zeta=0.6,
+    \qquad
+    \omega_n=2.5\,\mathrm{rad/s}.
+\end{equation}
+
+The dominant continuous-time poles are
+\begin{equation}
+    s_{1,2}
+    =-\zeta\omega_n
+    \pm j\omega_n\sqrt{1-\zeta^2}
+    =-1.5\pm j2.
+\end{equation}
+
+The corresponding second-order estimates are
+\begin{equation}
+    OS \approx 9.478\%,
+    \qquad
+    t_{\mathrm{settle}}
+    \approx\frac{4}{\zeta\omega_n}
+    =2.667\,\mathrm{s}.
+\end{equation}
+
+The remaining two poles are selected at $-6$ and $-8\,\mathrm{s}^{-1}$, giving faster decay rates than the dominant pair. The complete continuous-time pole selection is
+\begin{equation}
+    p_s=
+    \begin{bmatrix}
+        -1.5+j2 & -1.5-j2 & -6 & -8
+    \end{bmatrix}.
+\end{equation}
+
+Using $T_s=0.001\,\mathrm{s}$, the discrete-time poles are obtained from $z_i=e^{s_iT_s}$:
+\begin{align}
+    z_{1,2}
+    &\approx 0.9984991274 \pm j0.0019970009,\\
+    z_3 &\approx 0.9940179641,\\
+    z_4 &\approx 0.9920319148.
+\end{align}
+
+All selected discrete-time poles lie strictly inside the unit circle. The second-order estimates guide the initial design; the performance of the complete fourth-order system is evaluated using the Simulink responses.
 
 %-----------------------------------------------------------------------
 \subsection*{Q2.4) State-Feedback Gain}
 %-----------------------------------------------------------------------
 For the control law
-\begin{equation}\label{eq:sfc}
-  u(k) = -F\bigl(x(k) - x^\star\bigr) + u^\star,
+The discrete-time state-feedback control law is
+\begin{equation}
+    u(k)=-F\bigl(x(k)-x^\star(k)\bigr)+u^\star(k).
 \end{equation}
-\todo{$F$ from \texttt{place(A,B,pz)} and verification of
-$\operatorname{eig}(A-BF)$.}
+
+The feedback gain is calculated using the full-precision discrete-time matrices and the selected poles:
+\begin{verbatim}
+pz = exp(ps*ts);
+F = place(A,B,pz);
+eig(A-B*F)
+\end{verbatim}
+
+The resulting gain is
+\begin{equation}
+    F \approx
+    \begin{bmatrix}
+        -0.14517718 &
+        15.38254012 &
+        -0.45888105 &
+        0.76529169
+    \end{bmatrix}.
+\end{equation}
+
+Since there is one control input and four states,
+$F\in\mathbb{R}^{1\times4}$.
+
+MATLAB gives the achieved eigenvalues
+\begin{equation}
+    \lambda(A-BF)\approx
+    \left\{
+    \begin{array}{l}
+        0.9920319148,\\
+        0.9940179641,\\
+        0.9984991274+j0.0019970009,\\
+        0.9984991274-j0.0019970009
+    \end{array}
+    \right\}.
+\end{equation}
+
+These agree with the desired discrete-time poles to numerical precision. Therefore, the nominal unsaturated discrete-time closed loop is asymptotically stable. The effects of input limits and nonlinear dynamics are assessed through simulation.
 
 %-----------------------------------------------------------------------
 \subsection*{Q2.5) Closed-Loop Implementation}
@@ -316,7 +803,83 @@ $\operatorname{eig}(A-BF)$.}
 % Nonlinear systems: linear AND nonlinear model. Plot with
 % plots_Linear_case.m / plots_Nonlinear_case.m, no scope screenshots.
 
-\optfig{assets/images/fig_linear_sfc_response.png}{0.95}{Closed-loop response of the
+The state-feedback controller was implemented in a MATLAB Function block in Simulink with
+\texttt{run\_observer = 0}, so that the true simulated state
+vector was used for feedback:
+\begin{equation}
+    x=
+    \begin{bmatrix}
+        \theta & \alpha & \dot{\theta} & \dot{\alpha}
+    \end{bmatrix}^{T}.
+\end{equation}
+
+The controller operates at a sampling period of
+$T_s=0.001\,\mathrm{s}$. The requested voltage is limited to
+the recommended range of $\pm10\,\mathrm{V}$:
+\begin{equation}
+    u_{\mathrm{applied}}(k)
+    =
+    \min\left(
+        10,\,
+        \max\left(
+            -10,\,
+            -F\bigl(x(k)-x^\star(k)\bigr)+u^\star(k)
+        \right)
+    \right).
+\end{equation}
+
+The same controller was applied to both the linearised and nonlinear plant models. Both simulations used zero initial plant states, a $5^\circ$ arm-angle step at $t=1\,\mathrm{s}$, a zero pendulum-angle reference and a simulation duration of $15\,\mathrm{s}$.
+
+The linear plant implements $\dot{x}=A_cx+B_cu$ and $y=C_cx$, while the nonlinear plant implements the coupled equations derived in Q1. Simulation data were exported to the MATLAB workspace and plotted with axis labels, units and an arm-angle reference trace.
+
+%\begin{figure}[htbp]
+%    \centering
+%    \includegraphics[width=\linewidth]
+%        {MATLAB/Q2_Linear_Response.pdf}
+%    \caption{Linearised-model response under full-state feedback:
+%    arm-angle tracking, pendulum angle and applied motor voltage.}
+%    \label{fig:q2-linear}
+%\end{figure}
+
+%\begin{figure}[htbp]
+%    \centering
+%    \includegraphics[width=\linewidth]
+%        {MATLAB/Q2_Nonlinear_Response.pdf}
+%    \caption{Nonlinear-model response under the same full-state
+%    feedback controller and test conditions.}
+%    \label{fig:q2-nonlinear}
+%\end{figure}
+
+Figures~\ref{fig:q2-linear} and~\ref{fig:q2-nonlinear} show that the arm angle approaches the $5^\circ$ reference following a damped transient. The pendulum temporarily departs from upright during the manoeuvre before returning towards zero. The applied voltage also returns towards zero as the system approaches its stationary equilibrium.
+
+The linearised and nonlinear responses are visually close. This is consistent with the small pendulum-angle excursions in this test, for which the upright linearisation provides a good approximation of the nonlinear plant.
+
+Performance was evaluated using the exported simulation data. Arm-angle overshoot was measured relative to the commanded step amplitude. Settling time was measured from the reference step at $t=1\,\mathrm{s}$ using a band of $5^\circ\pm0.1^\circ$, corresponding to $\pm2\%$ of the command. Since the pendulum reference is zero, its transient is characterised by the maximum absolute angle rather than a percentage overshoot.
+
+\begin{table}[htbp]
+    \centering
+    \caption{Measured Simulink performance for the $5^\circ$
+    arm-angle step.}
+    \label{tab:q2-performance}
+    \begin{tabular}{lccc}
+        \hline
+        Quantity & Linear & Nonlinear & Requirement\\
+        \hline
+        Overshoot (\%)
+            & \textbf{TODO} & \textbf{TODO} & $<15$\\
+        Settling time (s)
+            & \textbf{TODO} & \textbf{TODO} & $<5$\\
+        Final arm error (deg)
+            & \textbf{TODO} & \textbf{TODO} & ---\\
+        Peak $|\alpha|$ (deg)
+            & \textbf{TODO} & \textbf{TODO} & ---\\
+        Peak $|u|$ (V)
+            & \textbf{TODO} & \textbf{TODO} & $\leq10$\\
+        \hline
+    \end{tabular}
+\end{table}
+
+\optfig{assets/images/fig_q25_linear.png}{0.95}{Closed-loop response of the
 linear model under state feedback.}{fig:q25_linear}
 
 \todo{Comment on Figure~\ref{fig:q25_linear}: overshoot, settling time,
@@ -326,304 +889,318 @@ steady-state error and control effort versus requirements. Add zooms.}
 \section*{Q3: Luenberger Observer Design \hfill (20 marks)}
 %=======================================================================
 
-The QUBE-Servo 2 measures only the two angles: the motor encoder gives
-$\theta$ and the pendulum encoder gives $\alpha$, so
-$y = C_c x = [\theta\;\;\alpha]^{\mathsf T}$. The velocities $\dot{\theta}$ and
-$\dot{\alpha}$ used by the state-feedback law of Q2 are not measured. They could
-be obtained by differencing the encoder signals, but at
-$T_s = 1~\mathrm{ms}$ a single encoder count
-($0.00307~\mathrm{rad} = 0.176^{\circ}$~\cite{qube_manual}) already appears as a
-$176^{\circ}/\mathrm{s}$ velocity step. Instead, a Luenberger observer
-reconstructs the full state from the measured outputs and the applied input,
-using the model of Q1.
+The controller of Q2 needs the full state
+$x=[\theta\;\;\alpha\;\;\dot\theta\;\;\dot\alpha]^{T}$, but the QUBE-Servo 2
+measures only the two angles through its encoders, $y=C_cx=[\theta\;\;\alpha]^{T}$.
+The angular velocities could be obtained by differencing the encoder signals.
+At $T_s=0.001~\mathrm s$, however, a single encoder count
+($2\pi/2048=0.00307~\mathrm{rad}=0.176^\circ$~\cite{qube_manual}) would appear
+as a velocity step of $176^\circ/\mathrm s$. Instead, a discrete-time
+Luenberger observer reconstructs the full state from the measured angles and
+the applied voltage, using the model of Q1.
 
 %-----------------------------------------------------------------------
 \subsection*{Q3.1) Observability}
 %-----------------------------------------------------------------------
-With $n = 4$ states and $p = 2$ outputs, the observability matrix of the
-continuous-time model~\eqref{eq:ct_ss} is the $np \times n = 8\times 4$ matrix
-(MATLAB: \texttt{OM = obsv(Ac,Cc)})
+With $n=4$ states and $p=2$ outputs, the observability matrix of the
+continuous-time model~\eqref{eq:ct_ss} is the $np\times n=8\times4$ matrix
 \begin{equation}\label{eq:obsv}
-  \mathcal{O} =
+  \mathcal{O}=
   \begin{bmatrix} C_c\\ C_cA_c\\ C_cA_c^{2}\\ C_cA_c^{3}\end{bmatrix}
-  =
+  \approx
   \left[\begin{array}{rrrr}
      1 & 0 & 0 & 0\\
      0 & 1 & 0 & 0\\ \hline
      0 & 0 & 1 & 0\\
      0 & 0 & 0 & 1\\ \hline
      0 & 54.236 & -6.179 & -1.786\\
-     0 & 167.67 & -6.107 & -5.521\\ \hline
+     0 & 167.675 & -6.107 & -5.521\\ \hline
      0 & -634.55 & 49.086 & 75.128\\
      0 & -1256.9 & 71.453 & 209.06
-  \end{array}\right].
+  \end{array}\right],
 \end{equation}
+computed with the full-precision matrices of Q1:
+\begin{verbatim}
+OM = obsv(Ac,Cc);
+rank(OM)
+rank(obsv(A,C))
+\end{verbatim}
 
-The first four rows of~\eqref{eq:obsv} form the $4\times4$ identity matrix,
-because $C_c$ selects the two angles and $C_cA_c$ selects the two angular
-velocities. Hence
+The first four rows of~\eqref{eq:obsv} form the $4\times4$ identity matrix.
+This is because $C_c$ selects the two angles and $C_cA_c$ selects the two
+angular velocities (the first two rows of $A_c$ in~\eqref{eq:Ac_symbolic} are
+$[0\;0\;1\;0]$ and $[0\;0\;0\;1]$). Therefore
 \begin{equation}
-  \operatorname{rank}(\mathcal{O}) = 4 = n,
+  \operatorname{rank}(\mathcal{O})=4=n,
 \end{equation}
-confirmed with \texttt{rank(OM)}, and the system is \textbf{observable}.
+and the continuous-time system is \textbf{completely observable}.
 
-From a control viewpoint, every state shows up in the measured outputs or in
-their time derivatives. The velocities are exactly the rates of change of the
-measured angles, so the initial state can be reconstructed from a finite window
-of input-output data. Rank~4 is reached with only the first time derivative,
-which means the observer only has to infer the velocities. The ZOH
-discretisation does not change this: \texttt{rank(obsv(A,C))} $= 4$ as well,
-because $T_s$ is far below the time scale of every open-loop mode (the open-loop
-eigenvalues are $0$, $9.95$, $-4.02$ and $-17.63~\mathrm{rad/s}$), so
-pathological sampling cannot occur.
+From a control viewpoint, the two unmeasured states are the time derivatives
+of the two measured outputs. Any initial velocity therefore leaves a
+distinguishable trace in $y(t)$ almost immediately, so the full state can be
+reconstructed from a short window of input--output data. Unlike
+controllability in Q2.1, which relies on the arm--pendulum coupling, here every
+state is reached through the kinematic chain from angle to velocity alone. The
+discrete-time pair $(A,C)$ also has rank~4. Sampling cannot destroy
+observability here because $T_s$ is much shorter than every open-loop time
+constant (open-loop eigenvalues $0$, $9.95$, $-4.02$ and
+$-17.63~\mathrm{s^{-1}}$).
 
 %-----------------------------------------------------------------------
 \subsection*{Q3.2) Observer Eigenvalues}
 %-----------------------------------------------------------------------
 By the separation principle~\cite{aguilera2026}, the eigenvalues of the
-observer-based closed loop are the union of the controller eigenvalues,
-$\operatorname{eig}(A-BF)$, and the observer eigenvalues,
-$\operatorname{eig}(A-LC)$. The observer can therefore be designed
-independently. It should be clearly faster than the controller, so that the
-estimation error has vanished before it can noticeably affect the transient set
-by $F$.
+observer-based closed loop are the union of the state-feedback eigenvalues,
+$\lambda(A-BF)$, and the observer eigenvalues, $\lambda(A-LC)$. The two designs
+can therefore be carried out independently. The estimation error should decay
+clearly faster than the regulated response, so that by the time the
+controller's dynamics evolve, it is effectively acting on the true state.
 
-The state-feedback eigenvalues from Q2.3 are
-$s_{1,2} = -2 \pm j2.097$ (dominant pair: $\zeta = 0.69$,
-$\omega_n = 2.90~\mathrm{rad/s}$) and $s_3 = -30$, $s_4 = -35~\mathrm{rad/s}$.
-The observer eigenvalues are placed about three times faster than the fastest
-controller eigenvalue:
+The state-feedback poles from Q2.3 are
+$p_s=\{-1.5\pm j2,\;-6,\;-8\}~\mathrm{s^{-1}}$. A common design rule places
+the observer poles two to six times faster than the fastest controller pole.
+Here a factor of five is used, with distinct real values:
 \begin{equation}\label{eq:obs_poles_s}
-  s_{o} = \{-100,\; -110,\; -120,\; -130\}~\mathrm{rad/s}.
+  p_{o,s}=\{-40,\;-45,\;-50,\;-55\}~\mathrm{s^{-1}}.
 \end{equation}
 The reasons for this choice are:
 \begin{itemize}[nosep]
-  \item The slowest observer mode has a time constant
-        $\tau = 1/100 = 10~\mathrm{ms}$, so the estimation error settles
-        ($\approx 4\tau$) in about $40~\mathrm{ms}$. That is $50$ times faster
-        than the dominant controller pair and about $54$ times shorter than the
-        $2.15~\mathrm{s}$ closed-loop settling time.
-  \item Real eigenvalues give a non-oscillatory error decay. They are distinct
-        because \texttt{place} only allows each eigenvalue a multiplicity of
-        up to $\operatorname{rank}(C) = 2$.
-  \item The observer is not made faster still. Faster eigenvalues need a larger
-        gain $L$, which passes more encoder quantisation noise into $\hat{x}$
-        and increases the initial ``peaking'' of the velocity estimates
-        (Figure~\ref{fig:q34_estimation}). At $|s_o|T_s \le 0.13$, each
-        observer mode still spans more than seven samples, so the discrete
-        design is well resolved.
+  \item The slowest observer mode has time constant $1/40=25~\mathrm{ms}$, so
+        the estimation error is reduced by a factor $e^{-4}\approx2\%$ within
+        about $0.1~\mathrm s$. That is $27$ times faster than the
+        $1/1.5=0.67~\mathrm s$ time constant of the dominant controller pair,
+        and far shorter than the $2.7~\mathrm s$ closed-loop settling time.
+  \item Real poles give a non-oscillatory error decay. They are distinct
+        because \texttt{place} only allows a pole multiplicity of up to
+        $\operatorname{rank}(C)=2$.
+  \item The poles are not pushed further left. A faster observer needs a larger
+        gain $L$, which passes more encoder quantisation noise into $\hat x$ and
+        increases the initial ``peaking'' of the velocity estimates (Q3.4).
+        With $|p_{o,s}|T_s\le0.055$, each observer time constant still spans
+        at least $18$ samples, so the discrete design is well resolved.
 \end{itemize}
 
-Mapping these to the $z$-plane with $z = e^{sT_s}$, $T_s = 1~\mathrm{ms}$
-(MATLAB: \texttt{po\_z = exp(po\_s*ts)}), gives the discrete-time observer
-eigenvalues
+Mapping these poles to the $z$-plane with $z_i=e^{s_iT_s}$ and
+$T_s=0.001~\mathrm s$ (MATLAB: \texttt{po\_z = exp(po\_s*ts)}) gives
 \begin{equation}\label{eq:obs_poles_z}
-  z_{o} = \{0.9048,\; 0.8958,\; 0.8869,\; 0.8781\}.
+  p_{o,z}\approx\{0.96079,\;0.95600,\;0.95123,\;0.94649\}.
 \end{equation}
-All lie on the positive real axis, inside the unit circle and closer to the
-origin than the controller eigenvalues
-$\{0.9980 \pm j0.0021,\; 0.9704,\; 0.9656\}$. This confirms in the $z$-domain
-that the estimation error decays faster than the regulated response.
+All lie on the positive real axis, strictly inside the unit circle and closer
+to the origin than the controller poles of Q2.3,
+$\{0.99850\pm j0.00200,\;0.99402,\;0.99203\}$. This confirms in the
+$z$-domain that the estimation error decays faster than the closed-loop
+response.
 
 %-----------------------------------------------------------------------
 \subsection*{Q3.3) Observer Gain}
 %-----------------------------------------------------------------------
 The discrete-time Luenberger observer is
 \begin{equation}\label{eq:observer}
-  \hat{x}(k+1) = A\hat{x}(k) + Bu(k) + L\bigl(y(k)-\hat{y}(k)\bigr),
-  \qquad \hat{y}(k) = C\hat{x}(k),
+  \hat{x}(k+1)=A\hat{x}(k)+Bu(k)+L\bigl(y(k)-\hat{y}(k)\bigr),
+  \qquad \hat{y}(k)=C\hat{x}(k).
 \end{equation}
-i.e.\ a copy of the plant model driven by the same input and corrected by the
-output innovation $y(k)-\hat{y}(k)$. Subtracting~\eqref{eq:observer} from the
-plant model~\eqref{eq:dt_ss}, the estimation error
-$e(k) = x(k) - \hat{x}(k)$ evolves as
+It is a copy of the discrete model~\eqref{eq:dt_ss}, driven by the same input
+and corrected by the output innovation $y(k)-\hat y(k)$. Subtracting it from
+the plant model, the estimation error $e(k)=x(k)-\hat{x}(k)$ evolves as
 \begin{equation}\label{eq:err_dyn}
-  e(k+1) = (A - LC)\,e(k),
+  e(k+1)=(A-LC)\,e(k),
 \end{equation}
-independent of $u(k)$. Because
-$\operatorname{eig}(A-LC) = \operatorname{eig}(A^{\mathsf T}-C^{\mathsf T}L^{\mathsf T})$,
-choosing $L$ is the dual of a state-feedback design for the pair
-$(A^{\mathsf T}, C^{\mathsf T})$. It is solvable because $(A, C)$ is observable
-(Q3.1). In MATLAB:
-\begin{lstlisting}
-po_z = exp([-100 -110 -120 -130]*ts);
-Lo   = place(A', C', po_z)';
+independently of $u(k)$ and of the reference. Because
+$\lambda(A-LC)=\lambda(A^{T}-C^{T}L^{T})$, computing $L$ is the dual of a
+state-feedback design for the pair $(A^{T},C^{T})$. That design is solvable
+because $(A,C)$ is observable (Q3.1):
+\begin{verbatim}
+po_s = [-40 -45 -50 -55];
+po_z = exp(po_s*ts);
+Lo   = place(A',C',po_z)';
 eig(A - Lo*C)
-\end{lstlisting}
-which gives the $n\times p = 4\times2$ observer gain
+\end{verbatim}
+The resulting $n\times p=4\times2$ observer gain is
 \begin{equation}\label{eq:L}
-  L =
+  L\approx
   \begin{bmatrix}
-     0.2108  & -0.0104\\
-    -0.0152  &  0.2120\\
-    10.466   & -1.188\\
-    -2.168   & 10.861
-  \end{bmatrix}.
+     0.087990 & -0.005869\\
+    -0.011086 &  0.086021\\
+     1.6806   & -0.25164\\
+    -0.70415  &  1.8098
+  \end{bmatrix},
 \end{equation}
-Evaluating the eigenvalues of the error-dynamics matrix gives
+and MATLAB returns
 \begin{equation}
-  \operatorname{eig}(A - LC) = \{0.9048,\; 0.8958,\; 0.8869,\; 0.8781\},
+  \lambda(A-LC)\approx\{0.96079,\;0.95600,\;0.95123,\;0.94649\},
 \end{equation}
-identical to~\eqref{eq:obs_poles_z}, so the observer has the desired
-eigenvalues.
+which matches~\eqref{eq:obs_poles_z} to numerical precision. The observer
+therefore has the desired eigenvalues, and the error dynamics~\eqref{eq:err_dyn}
+are asymptotically stable.
 
-The structure of $L$ has a clear physical reading. Column~1 weights the
-$\theta$ innovation $\theta - \hat{\theta}$, and column~2 weights the $\alpha$
-innovation $\alpha - \hat{\alpha}$. Each angle estimate is corrected mainly by
-its own measurement ($0.21$ per sample, on the diagonal of the first two
-rows). Each velocity estimate is corrected by about $10.5~\mathrm{s^{-1}}$ per
-radian of its own angle innovation, which works like a model-based, filtered
-differentiator. The small off-diagonal terms account for the coupling between
-the arm and the pendulum in $A$.
+The structure of $L$ has a clear physical reading. Column~1 weights the arm
+innovation $\theta-\hat\theta$, and column~2 weights the pendulum innovation
+$\alpha-\hat\alpha$. Each angle estimate is corrected mainly by its own
+measurement, by about $0.088$ of the innovation per sample (diagonal of the
+first two rows). Each velocity estimate is corrected by about
+$1.7~\mathrm{(rad/s)/rad}$ per sample from its own angle innovation, which
+acts as a model-based, filtered differentiator. One encoder count of
+innovation therefore changes $\hat{\dot\theta}$ by only about
+$1.68\times0.00307~\mathrm{rad/s}=0.30^\circ/\mathrm s$, compared with the
+$176^\circ/\mathrm s$ jump of a raw finite difference. The off-diagonal terms
+account for the arm--pendulum coupling in $A$.
 
 %-----------------------------------------------------------------------
 \subsection*{Q3.4) Closed-Loop Implementation}
 %-----------------------------------------------------------------------
-The observer was implemented in the provided Simulink models
-(\path{sim_DP2_2026_SFC_Linear.slx} and
-\path{sim_DP2_2026_SFC_Nonlinear.slx}) inside the MATLAB Function block
-\emph{Digital Controller}, which is sampled at $T_s = 1~\mathrm{ms}$. The
+The observer runs in the same MATLAB Function block as the state feedback of
+Q2.5, sampled at $T_s=0.001~\mathrm s$, with \texttt{run\_observer = 1}. The
 controller now feeds back the estimated state:
 \begin{equation}\label{eq:sfc_obs}
-  u(k) = -F\bigl(\hat{x}(k) - x^\star\bigr) + u^\star.
+  u(k)=-F\bigl(\hat{x}(k)-x^\star(k)\bigr)+u^\star(k),
 \end{equation}
-The core of the block (with \texttt{run\_observer = 1}) is:
+where $F$, $x^\star$ and $u^\star=0$ are unchanged from Q2.2--Q2.4. The
+relevant part of the block is:
 \begin{lstlisting}
-x_hat = x_hat_k;                            % estimate used at sample k
-xu_ref = [A-eye(n) B; C zeros(p,m)] \ [zeros(n,1); y_ref];
-x_ref = xu_ref(1:n);  u_ref = xu_ref(n+1:n+m);   % Q2.2
-u_k = -F*(x_hat_k - x_ref) + u_ref;       
-u_k = min(max(u_k, -10), 10);               % +/-10 V amplifier limit
-y_hat   = C*x_hat_k;                        % Luenberger observer (Q3.3)
+x_hat = x_hat_k;                      % estimate used at sample k
+x_ref = [y_ref(1); 0; 0; 0];          % Q2.2
+u_ref = 0;
+u_k = -F*(x_hat_k - x_ref) + u_ref;   % SFC on the estimated state
+u_k = min(max(u_k, -10), 10);         % +/-10 V amplifier limit
+y_hat   = C*x_hat_k;                  % Luenberger observer (Q3.3)
 x_hat_k = A*x_hat_k + B*u_k + Lo*(y_k - y_hat);
 \end{lstlisting}
-The observer is updated with the \emph{saturated} voltage that is actually
-applied to the motor. Feeding it the unsaturated command would make its model
-input differ from the plant input whenever the amplifier limits, and the
-estimate would drift.
+The observer is updated with the \emph{saturated} voltage that actually reaches
+the motor. If it were fed the unsaturated command, its model input would differ
+from the plant input whenever the amplifier limits, and $\hat x$ would drift.
 
-The controller was applied to both the linearised model (Q1.1) and the
-nonlinear rotary-pendulum model. The nonlinear model is the same
-Euler--Lagrange model before linearisation, with
-$\sin\alpha$, $\cos\alpha$, $\dot{\theta}^2$, $\dot{\alpha}^2$ and
-$\dot{\theta}\dot{\alpha}$ terms retained, implemented in
-\path{rip_nonlinear_dynamics.m}. Both runs use the arm reference
-$\theta^\star = 30^{\circ}$ applied as a step at $t = 1~\mathrm{s}$ and
-$\alpha^\star = 0$ (upright), for which Q2.2 gives
-$x^\star = [\theta^\star\;0\;0\;0]^{\mathsf T}$ and $u^\star = 0$. As Remark~5
-asks, the plant starts at rest upright, $x(0) = 0$, while the observer is
-deliberately initialised with
+The same controller and observer were applied to the linearised and nonlinear
+Simulink plants of Q2.5. As Remark~5 asks, the plant starts at rest upright,
+$x(0)=0$, while the observer is deliberately initialised with
 \begin{equation}
-  \hat{x}(0) = \bigl[\,10^{\circ}\;\; -5^{\circ}\;\; 0\;\; 0\,\bigr]^{\mathsf T}
-  \neq x(0).
+  \hat{x}(0)=\bigl[\,3^\circ\;\;-1^\circ\;\;0\;\;0\,\bigr]^{T}\neq x(0).
 \end{equation}
-All signals were exported to the workspace and plotted with
-\path{plot_closed_loop.m}. The script \path{run_all_cases.m}
-regenerates every figure.
+In the observer tests the $5^\circ$ arm step is applied at $t=5~\mathrm s$
+instead of $1~\mathrm s$. The reason is explained under ``Effect of the initial
+estimation error'' below: this separates the start-up transient caused by
+$\hat x(0)$ from the tracking test. The step time is set from
+\texttt{main\_SFC.m} at run time, and the Q2.5 configuration is unchanged.
+Signals were exported to the workspace and plotted with
+\texttt{plot\_closed\_loop.m}. The script \texttt{run\_all\_cases.m}
+regenerates every Q3 figure.
 
 \textbf{Observer convergence.}
 Figure~\ref{fig:q34_estimation} compares the true and estimated states of the
-nonlinear model, with a zoom on the first $0.1~\mathrm{s}$.
+nonlinear model, with a zoom on the first $0.3~\mathrm s$.
 Figure~\ref{fig:q34_error} shows the estimation error on a logarithmic scale.
-The angle estimates converge onto the measured angles within a few
-milliseconds, and both angle errors stay below $0.1^{\circ}$ after
-$54~\mathrm{ms}$ in both the linear and nonlinear cases. This agrees with the
-$\approx 40~\mathrm{ms}$ predicted from the slowest observer eigenvalue in Q3.2.
-After the first few samples, the four error curves in
-Figure~\ref{fig:q34_error} are straight lines on the logarithmic axis, which
-is the exponential decay of~\eqref{eq:err_dyn}. The final error is about
-$10^{-12}$, at the level of numerical round-off.
+The angle estimates converge onto the measured angles within about
+$25~\mathrm{ms}$, and both angle errors stay below $0.01^\circ$ after
+$153~\mathrm{ms}$ in both the linear and nonlinear cases. This agrees with
+Q3.2, since reducing a $3^\circ$ error to $0.01^\circ$ takes
+$\ln(300)\approx5.7$ time constants of the slowest observer mode, or about
+$143~\mathrm{ms}$. After the first few samples, the error curves in
+Figure~\ref{fig:q34_error} are straight lines on the logarithmic axis, which is
+the exponential decay predicted by~\eqref{eq:err_dyn}. The final estimation
+error is about $10^{-13}$, at the level of numerical round-off.
 
-The zoom in Figure~\ref{fig:q34_estimation} also shows the price of a fast
-observer. The velocities are not measured, so the initial $10^{\circ}$ and
-$-5^{\circ}$ angle innovations are converted through the large velocity gains of
-$L$ into velocity-estimate errors that peak at $389^{\circ}/\mathrm{s}$
-($\dot{\theta}$) and $254^{\circ}/\mathrm{s}$ ($\dot{\alpha}$) about
-$8$--$9~\mathrm{ms}$ after start-up. This is the typical peaking of a
-high-gain observer, and it is why the observer eigenvalues were not pushed
-further left.
+The zoom also shows the price of estimating unmeasured states. The velocity
+estimates start with zero error, but the initial $3^\circ$ and $-1^\circ$
+angle innovations pass through the velocity rows of $L$. They therefore
+produce velocity-estimate errors that peak at $41.8^\circ/\mathrm s$
+($\dot\theta$) and $28.5^\circ/\mathrm s$ ($\dot\alpha$) about
+$20~\mathrm{ms}$ after start-up, before decaying with the rest of the error.
+This transient ``peaking'' grows with observer speed, and it is the main reason
+the observer poles were not placed further left in Q3.2.
+
+\textbf{Effect of the initial estimation error.}
+Figures~\ref{fig:q34_closed_loop_L} and~\ref{fig:q34_closed_loop_NL} show the
+full closed-loop responses. Because $u(k)$ is computed from $\hat x(k)$, the
+wrong initial estimate acts on the plant like an initial-condition disturbance.
+The controller ``sees'' the pendulum $1^\circ$ from upright and responds with
+$u(0)=0.276~\mathrm V$. The gain on the pendulum angle,
+$F_\alpha=15.38~\mathrm{V/rad}$, is about $100$ times the gain on the arm
+angle, $F_\theta=-0.145~\mathrm{V/rad}$. This is the correct design for an
+inverted pendulum, but it means a small pendulum-estimate error commands a
+large arm motion. Over the $\approx0.1~\mathrm s$ the estimate takes to
+converge, the plant is pushed far enough that the arm swings to $18.3^\circ$
+and the pendulum to $1.61^\circ$. The recovery is then governed by the
+deliberately gentle dominant poles of Q2.3 ($\sigma=-1.5~\mathrm{s^{-1}}$) and
+takes roughly $3~\mathrm s$. The peak voltage, $0.71~\mathrm V$, stays well
+inside the $\pm10~\mathrm V$ limit, so the loop remains linear throughout.
+By $t=5~\mathrm s$ the arm is back within $0.01^\circ$ of zero, which is why
+the tracking step was moved there.
 
 \textbf{Closed-loop performance.}
-Figures~\ref{fig:q34_closed_loop_L} and~\ref{fig:q34_closed_loop_NL} show the
-response of the observer-based controller on the linear and nonlinear models.
-Table~\ref{tab:q34_metrics} compares it with the full-state feedback of Q2.5.
-Because $u(k)$ is computed from $\hat{x}(k)$, the wrong initial estimate acts
-like an initial-condition disturbance. At $k = 0$ the controller ``sees'' the
-pendulum $5^{\circ}$ off upright and commands $u(0) = 8.98~\mathrm{V}$. The
-voltage then saturates at $-10~\mathrm{V}$ for $21~\mathrm{ms}$ while the
-estimate converges. This briefly kicks the pendulum to $|\alpha| = 5.8^{\circ}$,
-compared with $1.5^{\circ}$ under full-state feedback, and moves the arm by
-about $12^{\circ}$ before the controller recovers. Under full-state feedback,
-nothing happens before the step.
-
-Once the estimation error has converged (well before the step at
-$t = 1~\mathrm{s}$), $\hat{x}(k) \approx x(k)$ and, by the separation
-principle, the response is governed only by $\operatorname{eig}(A - BF)$. The
-step response is accordingly almost identical to Q2.5: $4.6\,\%$ overshoot
-(requirement $< 15\,\%$), $2.16~\mathrm{s}$ settling time to the $2\,\%$ band
-(requirement $< 5~\mathrm{s}$) and negligible steady-state error. The slightly
-lower overshoot than in Q2.5 comes from the arm still returning from the
-start-up transient when the step is applied. All requirements are met in both
-models. Saturation briefly breaks the linearity that the separation principle
-assumes. Because the observer uses the applied (saturated) input, the
-estimation-error dynamics~\eqref{eq:err_dyn} are unaffected and the estimate
-stays correct throughout.
+Figure~\ref{fig:q34_step_zoom} zooms in on the $5^\circ$ step, and
+Table~\ref{tab:q34_metrics} compares it with the full-state feedback results of
+Q2.5. Once the estimate has converged, $\hat x(k)\approx x(k)$ and, by the
+separation principle, the response is governed only by $\lambda(A-BF)$. The
+observer-based step response is accordingly indistinguishable from Q2.5:
+$8.39\,\%$ overshoot against $8.37\,\%$, and $2.715~\mathrm s$ settling time
+against $2.713~\mathrm s$. Both are well within the requirements of
+$<15\,\%$ and $<5~\mathrm s$, with negligible steady-state error. The estimated
+arm angle in Figure~\ref{fig:q34_step_zoom} lies on top of the true one during
+the whole manoeuvre.
 
 \begin{table}[H]\centering
-\caption{Simulated step-response metrics ($\theta^\star = 30^{\circ}$ at
-$t = 1~\mathrm{s}$; overshoot and $2\,\%$ settling time measured from the
-step).}
+\caption{Simulated $5^\circ$ arm-step metrics with full-state feedback (Q2.5,
+step at $1~\mathrm s$) and observer-based feedback (Q3.4, step at
+$5~\mathrm s$). Overshoot and $2\,\%$ settling time are measured from the step;
+peak values are taken after the step.}
 \label{tab:q34_metrics}
-\begin{tabular}{llcccc}
+\begin{tabular}{llccccc}
 \toprule
-\textbf{Model} & \textbf{Feedback} & \textbf{OS [\%]} & $\bm{t_s}$ \textbf{[s]} &
-  $\bm{\max|\alpha|}$ \textbf{[deg]} & $\bm{\max|V_m|}$ \textbf{[V]}\\
+\textbf{Model} & \textbf{Feedback} & \textbf{OS [\%]} & $\bm{t_s}$ \textbf{[s]}
+ & \textbf{Final error [deg]} & $\bm{\max|\alpha|}$ \textbf{[deg]}
+ & $\bm{\max|V_m|}$ \textbf{[V]}\\
 \midrule
-Linear    & $x(k)$ (Q2.5)       & 5.32 & 2.15 & 1.47 & 2.18\\
-Nonlinear & $x(k)$ (Q2.5)       & 5.30 & 2.15 & 1.47 & 2.18\\
-Linear    & $\hat{x}(k)$ (Q3.4) & 4.64 & 2.16 & 5.82 & 10.0 (sat.)\\
-Nonlinear & $\hat{x}(k)$ (Q3.4) & 4.59 & 2.16 & 5.84 & 10.0 (sat.)\\
+Linear    & $x(k)$       & 8.37 & 2.713 & $5.5\times10^{-10}$ & 0.104 & 0.040\\
+Nonlinear & $x(k)$       & 8.37 & 2.713 & $5.5\times10^{-10}$ & 0.104 & 0.040\\
+Linear    & $\hat x(k)$  & 8.39 & 2.715 & $2.9\times10^{-6}$  & 0.11  & 0.04\\
+Nonlinear & $\hat x(k)$  & 8.39 & 2.715 & $2.9\times10^{-6}$  & 0.11  & 0.04\\
 \midrule
-\multicolumn{2}{l}{Requirement} & $< 15$ & $< 5$ & -- & $\le 10$\\
+\multicolumn{2}{l}{Requirement} & $<15$ & $<5$ & -- & -- & $\le10$\\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The linear and nonlinear responses differ by less than $0.1$ percentage points
-of overshoot. The pendulum never leaves $|\alpha| < 6^{\circ}$, where
-$\sin\alpha \approx \alpha$ is accurate to better than $0.2\,\%$, so the
-linearised model on which both $F$ and $L$ are based remains a faithful
-description of the plant.
+The small differences between the two rows of each pair are the last remnant
+of the start-up transient, which has not fully decayed at $t=5~\mathrm s$. The
+linear and nonlinear results agree to the precision shown, because the
+pendulum never leaves $|\alpha|<1.7^\circ$. At that angle the approximation
+$\sin\alpha\approx\alpha$ is accurate to about $0.01\,\%$, so the linearised
+model on which both $F$ and $L$ are based describes the plant faithfully.
 
-On the real QUBE-Servo 2, two practical points follow from these results.
-First, the start-up kick can be avoided by initialising $\hat{\theta}(0)$ and
-$\hat{\alpha}(0)$ with the first encoder readings, since only the
-unmeasured velocities then need to be estimated. Second, the simulated
-steady-state error is zero only because the model is exact. Unmodelled
-Coulomb friction and parameter mismatch on the hardware would leave an offset
-in $\theta$ that this proportional state feedback cannot remove without
-integral action.
+On the real QUBE-Servo 2, two practical points follow. First, the start-up
+swing can be avoided by initialising $\hat\theta(0)$ and $\hat\alpha(0)$ from
+the first encoder readings. Then only the velocities, which are zero at rest,
+need to be estimated, and the initial innovation is close to zero. Second, the
+simulated steady-state error is zero only because the model is exact.
+Unmodelled Coulomb friction and parameter mismatch on the hardware would leave
+an arm-angle offset that this proportional state feedback cannot remove
+without integral action.
 
-\optfig{assets/images/fig_nonlinear_obs_estimation.png}{1.0}{True ($x$, solid)
-and estimated ($\hat{x}$, dashed) states of the nonlinear model with
-$\hat{x}(0) = [10^{\circ}\; -5^{\circ}\; 0\; 0]^{\mathsf T} \neq x(0) = 0$.
-Left: full simulation; right: zoom on the first $0.1~\mathrm{s}$ showing
-observer convergence.}{fig:q34_estimation}
+\optfig{Report/assets/images/fig_nonlinear_obs_estimation.png}{1.0}{True ($x$,
+solid) and estimated ($\hat x$, dashed) states of the nonlinear model with
+$\hat x(0)=[3^\circ\;-1^\circ\;0\;0]^{T}\neq x(0)=0$. Left: full simulation;
+right: zoom on the first $0.3~\mathrm s$ showing observer
+convergence.}{fig:q34_estimation}
 
-\optfig{assets/images/fig_linear_obs_error.png}{0.9}{Magnitude of the
-estimation error $e = x - \hat{x}$ (linear model, logarithmic scale) during the
-first $0.2~\mathrm{s}$; the straight-line decay reflects the exponential error
-dynamics $e(k+1) = (A - LC)e(k)$.}{fig:q34_error}
+\optfig{Report/assets/images/fig_linear_obs_error.png}{0.9}{Magnitude of the
+estimation error $e=x-\hat x$ (linear model, logarithmic scale) during the
+first $0.5~\mathrm s$. The straight-line decay reflects the exponential error
+dynamics $e(k+1)=(A-LC)e(k)$.}{fig:q34_error}
 
-\optfig{assets/images/fig_linear_obs_response.png}{0.85}{Observer-based state
-feedback on the linear model: arm angle $\theta$ with reference $\theta^\star$
-(dotted lines: $\pm2\,\%$ band), pendulum angle $\alpha$, and motor voltage
-$V_m$.}{fig:q34_closed_loop_L}
+\optfig{Report/assets/images/fig_linear_obs_response.png}{0.85}{Observer-based
+state feedback on the linear model: arm angle $\theta$ with reference
+$\theta^\star$ (dotted lines: $\pm2\,\%$ band), pendulum angle $\alpha$ and
+motor voltage $V_m$. The transient before $t=5~\mathrm s$ is caused by the
+initial estimation error.}{fig:q34_closed_loop_L}
 
-\optfig{assets/images/fig_nonlinear_obs_response.png}{0.85}{Observer-based state
-feedback on the nonlinear model: arm angle $\theta$ with reference $\theta^\star$
-(dotted lines: $\pm2\,\%$ band), pendulum angle $\alpha$, and motor voltage
-$V_m$.}{fig:q34_closed_loop_NL}
+\optfig{Report/assets/images/fig_nonlinear_obs_response.png}{0.85}{Observer-based
+state feedback on the nonlinear model: arm angle $\theta$ with reference
+$\theta^\star$ (dotted lines: $\pm2\,\%$ band), pendulum angle $\alpha$ and
+motor voltage $V_m$.}{fig:q34_closed_loop_NL}
+
+\optfig{Report/assets/images/fig_nonlinear_obs_step_zoom.png}{0.85}{Zoom on the
+$5^\circ$ arm step applied at $t=5~\mathrm s$ (nonlinear model): reference,
+true arm angle and its estimate, with the $\pm2\,\%$ settling band (dotted
+lines).}{fig:q34_step_zoom}
 
 \clearpage
 
@@ -642,6 +1219,17 @@ University of Michigan, USA. [Online]. Available:
 \bibitem{qube_manual}
 Quanser Inc., \emph{QUBE-Servo 2 User Manual}, v1.0, Markham, ON, Canada.
 
+\bibitem{qube_courseware}
+Quanser Inc., \emph{QUBE-Servo Workbook -- Student}, v2.0,
+\emph{Pendulum State-Space Model}, in-lab exercise 6.
+Course-supplied MATLAB student courseware.
+
+\bibitem{hardware_template}
+R. P. Aguilera, \emph{ControLab Rotary Inverted Pendulum Template},
+\texttt{CS01\_RIP\_QS2\_T41\_r2025b}, University of Technology Sydney.
+Sampling-time setting in \texttt{Hardware\_settings.m}.
+
 \end{thebibliography}
+
 
 \end{document}

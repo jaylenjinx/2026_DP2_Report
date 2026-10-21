@@ -832,23 +832,23 @@ The same controller was applied to both the linearised and nonlinear plant model
 
 The linear plant implements $\dot{x}=A_cx+B_cu$ and $y=C_cx$, while the nonlinear plant implements the coupled equations derived in Q1. Simulation data were exported to the MATLAB workspace and plotted with axis labels, units and an arm-angle reference trace.
 
-%\begin{figure}[htbp]
-%    \centering
-%    \includegraphics[width=\linewidth]
-%        {MATLAB/Q2_Linear_Response.pdf}
-%    \caption{Linearised-model response under full-state feedback:
-%    arm-angle tracking, pendulum angle and applied motor voltage.}
-%    \label{fig:q2-linear}
-%\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\linewidth]
+        {Report/assets/images/fig_q2_linear_response.pdf}
+    \caption{Linearised-model response under full-state feedback:
+    arm-angle tracking, pendulum angle and applied motor voltage.}
+    \label{fig:q2-linear}
+\end{figure}
 
-%\begin{figure}[htbp]
-%    \centering
-%    \includegraphics[width=\linewidth]
-%        {MATLAB/Q2_Nonlinear_Response.pdf}
-%    \caption{Nonlinear-model response under the same full-state
-%    feedback controller and test conditions.}
-%    \label{fig:q2-nonlinear}
-%\end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\linewidth]
+        {Report/assets/images/fig_q2_nonlinear_response.pdf}
+    \caption{Nonlinear-model response under the same full-state
+    feedback controller and test conditions.}
+    \label{fig:q2-nonlinear}
+\end{figure}
 
 Figures~\ref{fig:q2-linear} and~\ref{fig:q2-nonlinear} show that the arm angle approaches the $5^\circ$ reference following a damped transient. The pendulum temporarily departs from upright during the manoeuvre before returning towards zero. The applied voltage also returns towards zero as the system approaches its stationary equilibrium.
 
@@ -866,24 +866,52 @@ Performance was evaluated using the exported simulation data. Arm-angle overshoo
         Quantity & Linear & Nonlinear & Requirement\\
         \hline
         Overshoot (\%)
-            & \textbf{TODO} & \textbf{TODO} & $<15$\\
+            & 8.37 & 8.37 & $<15$\\
         Settling time (s)
-            & \textbf{TODO} & \textbf{TODO} & $<5$\\
+            & 2.713 & 2.713 & $<5$\\
         Final arm error (deg)
-            & \textbf{TODO} & \textbf{TODO} & ---\\
+            & $5.5\times10^{-10}$ & $5.5\times10^{-10}$ & ---\\
         Peak $|\alpha|$ (deg)
-            & \textbf{TODO} & \textbf{TODO} & ---\\
+            & 0.104 & 0.104 & ---\\
         Peak $|u|$ (V)
-            & \textbf{TODO} & \textbf{TODO} & $\leq10$\\
+            & 0.040 & 0.040 & $\leq10$\\
         \hline
     \end{tabular}
 \end{table}
 
-\optfig{assets/images/fig_q25_linear.png}{0.95}{Closed-loop response of the
-linear model under state feedback.}{fig:q25_linear}
+Table~\ref{tab:q2-performance} summarises the measured performance, and
+Figure~\ref{fig:q2-zoom} zooms in on the arm-angle transient. The arm overshoots
+by $8.37\,\%$ and enters the $\pm2\,\%$ band for good $2.713\,\mathrm{s}$ after
+the step. Both values are well inside the requirements of $<15\,\%$ and
+$<5\,\mathrm{s}$. They are also close to the second-order estimates of Q2.3
+($9.48\,\%$ and $2.67\,\mathrm{s}$); the slightly lower overshoot shows the
+small influence of the two faster real poles at $-6$ and $-8\,\mathrm{s}^{-1}$.
 
-\todo{Comment on Figure~\ref{fig:q25_linear}: overshoot, settling time,
-steady-state error and control effort versus requirements. Add zooms.}
+The final arm error is below $10^{-9}$ degrees, so the steady-state error is
+zero for practical purposes. No integral action is needed in the nominal
+model: the arm angle is itself an integrating state (open-loop pole at the
+origin), and $u^\star=0$ holds exactly at every upright equilibrium.
+
+Immediately after the step, the arm first moves slightly the wrong way
+(Figure~\ref{fig:q2-zoom}). This is the non-minimum-phase behaviour typical of
+an inverted pendulum: the arm must first tilt the pendulum towards the new
+position before both can travel there.
+
+The control effort is very small. The peak pendulum deflection is
+$0.104^\circ$ and the peak voltage is $0.040\,\mathrm{V}$, only $0.4\,\%$ of
+the $\pm10\,\mathrm{V}$ limit. Saturation is therefore never reached, and the
+linear and nonlinear responses agree to the precision shown. This large
+actuator margin also means the dominant poles could be moved further left if
+a faster response were required.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\linewidth]
+        {Report/assets/images/fig_q2_nonlinear_transient.pdf}
+    \caption{Zoom on the arm-angle transient of the nonlinear model after the
+    $5^\circ$ step at $t=1\,\mathrm{s}$, with the $\pm2\,\%$ settling band.}
+    \label{fig:q2-zoom}
+\end{figure}
 
 %=======================================================================
 \section*{Q3: Luenberger Observer Design \hfill (20 marks)}

@@ -1,3 +1,9 @@
+%% DP2 Q1: QUBE-Servo 2 rotary inverted pendulum model
+% State x = [theta; alpha; theta_dot; alpha_dot] (rad, rad/s), alpha = 0 upright.
+% Input u = motor voltage Vm (V). Outputs y = [theta; alpha] (encoders).
+% Builds the linearised continuous model (Ac, Bc, Cc, Dc) about the upright
+% equilibrium and its ZOH discretisation (A, B, C, D) at ts = 1 ms.
+
 %% Physical parameters
 Rm = 8.4;
 kt = 0.042;

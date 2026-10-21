@@ -3,7 +3,11 @@ function plot_closed_loop(time, u, x, x_hat, theta_ref, step_time, case_name, sa
 %   x, x_hat : [theta alpha theta_dot alpha_dot] columns [rad, rad/s]
 %   case_name: 'Linear' or 'Nonlinear'
 
-out_dir = fullfile(fileparts(mfilename('fullpath')), '..', 'Report', 'assets', 'images');
+% Inside the report repo, figures go straight to the LaTeX images folder;
+% anywhere else (e.g. the submitted zip) they go to a local figures folder.
+here = fileparts(mfilename('fullpath'));
+out_dir = fullfile(here, '..', 'Report', 'assets', 'images');
+if ~isfolder(fullfile(here, '..', 'Report')), out_dir = fullfile(here, 'figures'); end
 tag = [lower(case_name) '_obs'];
 if save_figures && ~isfolder(out_dir), mkdir(out_dir); end
 

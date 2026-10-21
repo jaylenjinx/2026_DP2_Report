@@ -39,7 +39,7 @@ end
 x_hat_o = [3*pi/180 -1*pi/180 0 0]';
 step_time = 1 + 4*run_observer;
 
-save_figures = true;   % observer figures are exported to ../Report/assets/images
+save_figures = true;   % export the Q3 figures (location: see plot_closed_loop.m)
 
 %% Continuous-time state space model
 disp('*************************')
